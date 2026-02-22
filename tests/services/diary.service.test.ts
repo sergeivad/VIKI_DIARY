@@ -634,4 +634,149 @@ describe("DiaryService", () => {
       code: DiaryErrorCode.entryAccessDenied
     });
   });
+
+  it("getHistory returns paginated entries ordered by createdAt desc", async () => {
+    const entries = [
+      {
+        id: "entry-2",
+        babyId: "baby-1",
+        authorId: "user-2",
+        eventDate: new Date("2026-02-21T00:00:00.000Z"),
+        mergeWindowUntil: new Date("2026-02-22T12:20:00.000Z"),
+        createdAt: new Date("2026-02-22T12:10:00.000Z"),
+        updatedAt: new Date("2026-02-22T12:10:00.000Z"),
+        author: {
+          id: "user-2",
+          firstName: "Elena",
+          username: "elena"
+        },
+        items: []
+      }
+    ];
+
+    const findMany = vi.fn().mockResolvedValue(entries);
+
+    const tx = {
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({ babyId: "baby-1" })
+      },
+      diaryEntry: {
+        count: vi.fn().mockResolvedValue(3),
+        findMany
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    const result = await service.getHistory({
+      babyId: "baby-1",
+      actorId: "user-1",
+      page: 2,
+      limit: 1
+    });
+
+    expect(result).toEqual({
+      entries,
+      total: 3,
+      page: 2,
+      limit: 1,
+      totalPages: 3
+    });
+
+    expect(tx.diaryEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        babyId: "baby-1"
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip: 1,
+      take: 1,
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true
+          }
+        },
+        items: {
+          orderBy: {
+            orderIndex: "asc"
+          }
+        }
+      }
+    });
+  });
+
+  it("getHistory throws entry_access_denied for non-member", async () => {
+    const tx = {
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      },
+      diaryEntry: {
+        count: vi.fn(),
+        findMany: vi.fn()
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.getHistory({
+        babyId: "baby-1",
+        actorId: "user-1",
+        page: 1,
+        limit: 1
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryAccessDenied
+    });
+
+    expect(tx.diaryEntry.count).not.toHaveBeenCalled();
+    expect(tx.diaryEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it("getHistory normalizes invalid page and limit", async () => {
+    const tx = {
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({ babyId: "baby-1" })
+      },
+      diaryEntry: {
+        count: vi.fn().mockResolvedValue(0),
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    const result = await service.getHistory({
+      babyId: "baby-1",
+      actorId: "user-1",
+      page: -5,
+      limit: 0
+    });
+
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(1);
+    expect(tx.diaryEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        take: 1
+      })
+    );
+  });
 });

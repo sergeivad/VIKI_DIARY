@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMediaGroupMiddleware } from "../../src/bot/middleware/mediaGroup.js";
 
 function buildServices(hasDiary = true) {
+  const notifyOtherMembers = vi.fn().mockResolvedValue(undefined);
+
   return {
     userService: {
-      findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+      findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", firstName: "Sergei" })
     },
     babyService: {
-      getBabyByUser: vi.fn().mockResolvedValue(hasDiary ? { id: "baby-1" } : null)
+      getBabyByUser: vi.fn().mockResolvedValue(hasDiary ? { id: "baby-1", name: "Вики" } : null)
     },
     diaryService: {
       createOrAppend: vi.fn().mockResolvedValue({
@@ -16,9 +18,41 @@ function buildServices(hasDiary = true) {
         entry: {
           id: "entry-1",
           eventDate: new Date("2026-02-22T00:00:00.000Z"),
-          createdAt: new Date("2026-02-22T12:00:00.000Z")
+          createdAt: new Date("2026-02-22T12:00:00.000Z"),
+          items: [
+            {
+              id: "item-1",
+              entryId: "entry-1",
+              type: "photo",
+              textContent: "group caption",
+              fileId: "p1-large",
+              orderIndex: 0,
+              createdAt: new Date("2026-02-22T12:00:00.000Z")
+            },
+            {
+              id: "item-2",
+              entryId: "entry-1",
+              type: "photo",
+              textContent: null,
+              fileId: "p2-large",
+              orderIndex: 1,
+              createdAt: new Date("2026-02-22T12:00:01.000Z")
+            },
+            {
+              id: "item-3",
+              entryId: "entry-1",
+              type: "video",
+              textContent: null,
+              fileId: "v1",
+              orderIndex: 2,
+              createdAt: new Date("2026-02-22T12:00:02.000Z")
+            }
+          ]
         }
       })
+    },
+    notificationService: {
+      notifyOtherMembers
     }
   };
 }
@@ -112,6 +146,11 @@ describe("media group middleware", () => {
       [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
       [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
     ]);
+    expect(services.notificationService.notifyOtherMembers).toHaveBeenCalledWith({
+      babyId: "baby-1",
+      excludeUserId: "user-1",
+      text: "📝 Sergei добавил(а) запись в дневник Вики:\n«group caption»\n🖼 2 фото\n🎥 1 видео"
+    });
     expect(ctx2.reply).not.toHaveBeenCalled();
     expect(ctx3.reply).not.toHaveBeenCalled();
   });
@@ -149,6 +188,35 @@ describe("media group middleware", () => {
     expect(services.diaryService.createOrAppend).toHaveBeenCalledTimes(2);
   });
 
+  it("does not notify members when media is appended to open entry", async () => {
+    const middleware = createMediaGroupMiddleware(100);
+    const services = buildServices();
+    services.diaryService.createOrAppend = vi.fn().mockResolvedValue({
+      mode: "appended",
+      entry: {
+        id: "entry-1",
+        eventDate: new Date("2026-02-22T00:00:00.000Z"),
+        createdAt: new Date("2026-02-22T12:00:00.000Z"),
+        items: []
+      }
+    });
+
+    await middleware(
+      buildCtx({
+        mediaGroupId: "group-1",
+        services,
+        message: {
+          photo: [{ file_id: "p1" }]
+        }
+      }) as never,
+      vi.fn()
+    );
+
+    await vi.advanceTimersByTimeAsync(120);
+
+    expect(services.notificationService.notifyOtherMembers).not.toHaveBeenCalled();
+  });
+
   it("replies with onboarding hint when user has no diary", async () => {
     const middleware = createMediaGroupMiddleware(100);
     const services = buildServices(false);
@@ -167,6 +235,7 @@ describe("media group middleware", () => {
       "Сначала создайте дневник через /start или присоединитесь по инвайт-ссылке."
     );
     expect(services.diaryService.createOrAppend).not.toHaveBeenCalled();
+    expect(services.notificationService.notifyOtherMembers).not.toHaveBeenCalled();
   });
 
   it("ignores unsupported messages inside media group", async () => {

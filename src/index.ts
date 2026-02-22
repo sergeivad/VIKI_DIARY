@@ -8,18 +8,32 @@ import { prisma } from "./db/prisma.js";
 import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
+import { NotificationService } from "./services/notification.service.js";
 import { UserService } from "./services/user.service.js";
 
 const app = express();
 
+const userService = new UserService(prisma);
+const babyService = new BabyService(prisma);
+const inviteService = new InviteService(prisma, env.BOT_USERNAME);
+const diaryService = new DiaryService(prisma);
+
+let bot!: ReturnType<typeof createBot>;
+
 const services = {
-  userService: new UserService(prisma),
-  babyService: new BabyService(prisma),
-  inviteService: new InviteService(prisma, env.BOT_USERNAME),
-  diaryService: new DiaryService(prisma)
+  userService,
+  babyService,
+  inviteService,
+  diaryService,
+  notificationService: new NotificationService(
+    babyService,
+    async (telegramId, text) => {
+      await bot.api.sendMessage(telegramId.toString(), text);
+    }
+  )
 };
 
-const bot = createBot(services);
+bot = createBot(services);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });

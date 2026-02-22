@@ -8,6 +8,8 @@ import { dateInputConversation } from "./conversations/dateInput.js";
 import { onboardingConversation } from "./conversations/onboarding.js";
 import { handleEntryCallbacks } from "./handlers/callbacks.js";
 import { handleDiaryMessage } from "./handlers/diary.js";
+import { handleHistory } from "./handlers/history.js";
+import { handleHistoryCallbacks } from "./handlers/historyCallbacks.js";
 import { handleInvite } from "./handlers/invite.js";
 import { handleStart } from "./handlers/start.js";
 import { createMediaGroupMiddleware } from "./middleware/mediaGroup.js";
@@ -28,6 +30,7 @@ export function createBot(services: Services): Bot<BotContext> {
 
   bot.command("start", handleStart);
   bot.command("invite", handleInvite);
+  bot.command("history", handleHistory);
 
   bot.callbackQuery("onboarding:create", async (ctx) => {
     if (!ctx.from) {
@@ -53,6 +56,7 @@ export function createBot(services: Services): Bot<BotContext> {
   });
 
   bot.callbackQuery(/^entry:/, handleEntryCallbacks);
+  bot.callbackQuery(/^history:/, handleHistoryCallbacks);
 
   bot.on("message", handleDiaryMessage);
 

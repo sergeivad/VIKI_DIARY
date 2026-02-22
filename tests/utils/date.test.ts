@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formatRuDate, formatRuTime, parseRuDateInput, toUtcDateOnly } from "../../src/utils/date.js";
+import {
+  formatRuDate,
+  formatRuDateLong,
+  formatRuTime,
+  parseRuDateInput,
+  toUtcDateOnly
+} from "../../src/utils/date.js";
 
 describe("date utils", () => {
   it("parses dd.mm.yyyy", () => {
@@ -15,6 +21,10 @@ describe("date utils", () => {
 
   it("formats date for RU locale", () => {
     expect(formatRuDate(new Date("2026-02-22T00:00:00.000Z"))).toBe("22.02.2026");
+  });
+
+  it("formats long date for RU locale", () => {
+    expect(formatRuDateLong(new Date("2026-02-22T00:00:00.000Z"))).toBe("22 февраля 2026 г.");
   });
 
   it("formats time in UTC", () => {

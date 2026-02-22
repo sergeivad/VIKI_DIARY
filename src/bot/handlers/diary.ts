@@ -2,6 +2,7 @@ import type { DiaryItemInput } from "../../services/diary.service.js";
 import type { BotContext } from "../../types/bot.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
+import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
 
 const UNSUPPORTED_CONTENT_MESSAGE = "Пока я умею сохранять только текст, фото и видео 😊";
 const NO_DIARY_MESSAGE =
@@ -64,6 +65,14 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
       await ctx.reply(formatIngestAck(result), {
         reply_markup: buildEntryActionsKeyboard(result.entry.id)
       });
+      await notifyMembersAboutNewEntry({
+        notificationService: ctx.services.notificationService,
+        babyId: baby.id,
+        babyName: baby.name,
+        authorId: user.id,
+        authorFirstName: user.firstName,
+        items: result.entry.items
+      });
       return;
     }
 
@@ -119,6 +128,14 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
   if (result.mode === "created") {
     await ctx.reply(formatIngestAck(result), {
       reply_markup: buildEntryActionsKeyboard(result.entry.id)
+    });
+    await notifyMembersAboutNewEntry({
+      notificationService: ctx.services.notificationService,
+      babyId: baby.id,
+      babyName: baby.name,
+      authorId: user.id,
+      authorFirstName: user.firstName,
+      items: result.entry.items
     });
     return;
   }

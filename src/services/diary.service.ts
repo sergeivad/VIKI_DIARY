@@ -21,6 +21,17 @@ export type DiaryEntryDTO = DiaryEntry & {
   items: EntryItem[];
 };
 
+export type HistoryEntryAuthor = {
+  id: string;
+  firstName: string;
+  username: string | null;
+};
+
+export type HistoryEntryDTO = DiaryEntry & {
+  author: HistoryEntryAuthor;
+  items: EntryItem[];
+};
+
 type CreateEntryInput = {
   babyId: string;
   authorId: string;
@@ -56,6 +67,21 @@ type DeleteEntryInput = {
 type GetEntryByIdInput = {
   entryId: string;
   actorId: string;
+};
+
+type GetHistoryInput = {
+  babyId: string;
+  actorId: string;
+  page: number;
+  limit: number;
+};
+
+type GetHistoryResult = {
+  entries: HistoryEntryDTO[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 };
 
 type NormalizedDiaryItem = {
@@ -300,6 +326,31 @@ export class DiaryService {
     return entry;
   }
 
+  private async assertActorHasAccessToBabyTx(
+    tx: Prisma.TransactionClient,
+    babyId: string,
+    actorId: string
+  ): Promise<void> {
+    const membership = await tx.babyMember.findUnique({
+      where: {
+        babyId_userId: {
+          babyId,
+          userId: actorId
+        }
+      },
+      select: {
+        babyId: true
+      }
+    });
+
+    if (!membership) {
+      throw new DiaryDomainError(
+        DiaryErrorCode.entryAccessDenied,
+        "User has no access to entry"
+      );
+    }
+  }
+
   async getOpenEntry(
     babyId: string,
     authorId: string,
@@ -413,6 +464,57 @@ export class DiaryService {
       }
 
       return entry;
+    });
+  }
+
+  async getHistory(input: GetHistoryInput): Promise<GetHistoryResult> {
+    const page = Math.max(1, Math.trunc(input.page));
+    const limit = Math.max(1, Math.trunc(input.limit));
+
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToBabyTx(tx, input.babyId, input.actorId);
+
+      const [total, entries] = await Promise.all([
+        tx.diaryEntry.count({
+          where: {
+            babyId: input.babyId
+          }
+        }),
+        tx.diaryEntry.findMany({
+          where: {
+            babyId: input.babyId
+          },
+          orderBy: {
+            createdAt: "desc"
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            author: {
+              select: {
+                id: true,
+                firstName: true,
+                username: true
+              }
+            },
+            items: {
+              orderBy: {
+                orderIndex: "asc"
+              }
+            }
+          }
+        })
+      ]);
+
+      const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+      return {
+        entries,
+        total,
+        page,
+        limit,
+        totalPages
+      };
     });
   }
 

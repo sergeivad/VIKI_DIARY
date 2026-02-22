@@ -4,12 +4,24 @@ import { handleDiaryMessage } from "../../src/bot/handlers/diary.js";
 
 describe("handleDiaryMessage", () => {
   it("creates entry for text message", async () => {
+    const notifyOtherMembers = vi.fn().mockResolvedValue(undefined);
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
         id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
-        createdAt: new Date("2026-02-22T12:00:00.000Z")
+        createdAt: new Date("2026-02-22T12:00:00.000Z"),
+        items: [
+          {
+            id: "item-1",
+            entryId: "entry-1",
+            type: "text",
+            textContent: "Вика улыбнулась",
+            fileId: null,
+            orderIndex: 0,
+            createdAt: new Date("2026-02-22T12:00:00.000Z")
+          }
+        ]
       }
     });
 
@@ -24,13 +36,16 @@ describe("handleDiaryMessage", () => {
       },
       services: {
         userService: {
-          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", firstName: "Sergei" })
         },
         babyService: {
-          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1" })
+          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1", name: "Вики" })
         },
         diaryService: {
           createOrAppend
+        },
+        notificationService: {
+          notifyOtherMembers
         }
       },
       reply: vi.fn()
@@ -50,9 +65,15 @@ describe("handleDiaryMessage", () => {
       [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
       [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
     ]);
+    expect(notifyOtherMembers).toHaveBeenCalledWith({
+      babyId: "baby-1",
+      excludeUserId: "user-1",
+      text: "📝 Sergei добавил(а) запись в дневник Вики:\n«Вика улыбнулась»"
+    });
   });
 
   it("appends to open entry and replies with entry time", async () => {
+    const notifyOtherMembers = vi.fn();
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "appended",
       entry: {
@@ -72,13 +93,16 @@ describe("handleDiaryMessage", () => {
       },
       services: {
         userService: {
-          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", firstName: "Sergei" })
         },
         babyService: {
-          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1" })
+          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1", name: "Вики" })
         },
         diaryService: {
           createOrAppend
+        },
+        notificationService: {
+          notifyOtherMembers
         }
       },
       reply: vi.fn()
@@ -87,15 +111,28 @@ describe("handleDiaryMessage", () => {
     await handleDiaryMessage(ctx as never);
 
     expect(ctx.reply).toHaveBeenCalledWith("✅ Добавлено к записи от 14:30");
+    expect(notifyOtherMembers).not.toHaveBeenCalled();
   });
 
   it("saves single photo with caption", async () => {
+    const notifyOtherMembers = vi.fn().mockResolvedValue(undefined);
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
         id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
-        createdAt: new Date("2026-02-22T12:00:00.000Z")
+        createdAt: new Date("2026-02-22T12:00:00.000Z"),
+        items: [
+          {
+            id: "item-1",
+            entryId: "entry-1",
+            type: "photo",
+            textContent: "caption text",
+            fileId: "large",
+            orderIndex: 0,
+            createdAt: new Date("2026-02-22T12:00:00.000Z")
+          }
+        ]
       }
     });
 
@@ -111,13 +148,16 @@ describe("handleDiaryMessage", () => {
       },
       services: {
         userService: {
-          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", firstName: "Sergei" })
         },
         babyService: {
-          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1" })
+          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1", name: "Вики" })
         },
         diaryService: {
           createOrAppend
+        },
+        notificationService: {
+          notifyOtherMembers
         }
       },
       reply: vi.fn()
@@ -130,15 +170,32 @@ describe("handleDiaryMessage", () => {
       authorId: "user-1",
       items: [{ type: "photo", fileId: "large", textContent: "caption text" }]
     });
+    expect(notifyOtherMembers).toHaveBeenCalledWith({
+      babyId: "baby-1",
+      excludeUserId: "user-1",
+      text: "📝 Sergei добавил(а) запись в дневник Вики:\n«caption text»\n🖼 1 фото"
+    });
   });
 
   it("saves single video with caption", async () => {
+    const notifyOtherMembers = vi.fn().mockResolvedValue(undefined);
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
         id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
-        createdAt: new Date("2026-02-22T12:00:00.000Z")
+        createdAt: new Date("2026-02-22T12:00:00.000Z"),
+        items: [
+          {
+            id: "item-1",
+            entryId: "entry-1",
+            type: "video",
+            textContent: "video caption",
+            fileId: "video-1",
+            orderIndex: 0,
+            createdAt: new Date("2026-02-22T12:00:00.000Z")
+          }
+        ]
       }
     });
 
@@ -154,13 +211,16 @@ describe("handleDiaryMessage", () => {
       },
       services: {
         userService: {
-          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1", firstName: "Sergei" })
         },
         babyService: {
-          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1" })
+          getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1", name: "Вики" })
         },
         diaryService: {
           createOrAppend
+        },
+        notificationService: {
+          notifyOtherMembers
         }
       },
       reply: vi.fn()
@@ -172,6 +232,11 @@ describe("handleDiaryMessage", () => {
       babyId: "baby-1",
       authorId: "user-1",
       items: [{ type: "video", fileId: "video-1", textContent: "video caption" }]
+    });
+    expect(notifyOtherMembers).toHaveBeenCalledWith({
+      babyId: "baby-1",
+      excludeUserId: "user-1",
+      text: "📝 Sergei добавил(а) запись в дневник Вики:\n«video caption»\n🎥 1 видео"
     });
   });
 
@@ -194,6 +259,9 @@ describe("handleDiaryMessage", () => {
         },
         diaryService: {
           createOrAppend: vi.fn()
+        },
+        notificationService: {
+          notifyOtherMembers: vi.fn()
         }
       },
       reply: vi.fn()
@@ -223,6 +291,9 @@ describe("handleDiaryMessage", () => {
         },
         diaryService: {
           createOrAppend: vi.fn()
+        },
+        notificationService: {
+          notifyOtherMembers: vi.fn()
         }
       },
       reply: vi.fn()

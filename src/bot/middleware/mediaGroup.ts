@@ -3,6 +3,7 @@ import type { NextFunction } from "grammy";
 import type { DiaryItemInput } from "../../services/diary.service.js";
 import type { BotContext } from "../../types/bot.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
+import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
 
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
@@ -97,6 +98,14 @@ export function createMediaGroupMiddleware(
       if (result.mode === "created") {
         await buffered.ctx.reply(formatIngestAck(result), {
           reply_markup: buildEntryActionsKeyboard(result.entry.id)
+        });
+        await notifyMembersAboutNewEntry({
+          notificationService: buffered.ctx.services.notificationService,
+          babyId: baby.id,
+          babyName: baby.name,
+          authorId: user.id,
+          authorFirstName: user.firstName,
+          items: result.entry.items
         });
         return;
       }

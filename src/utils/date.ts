@@ -32,6 +32,15 @@ export function formatRuDate(date: Date): string {
   }).format(date);
 }
 
+export function formatRuDateLong(date: Date): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
+}
+
 export function formatRuTime(date: Date): string {
   return new Intl.DateTimeFormat("ru-RU", {
     hour: "2-digit",
