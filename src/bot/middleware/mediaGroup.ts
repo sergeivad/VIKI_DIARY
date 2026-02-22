@@ -7,6 +7,7 @@ import { formatRuDate, formatRuTime } from "../../utils/date.js";
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
 const NO_DIARY_MESSAGE =
   "Сначала создайте дневник через /start или присоединитесь по инвайт-ссылке.";
+const UNSUPPORTED_CONTENT_MESSAGE = "Пока я умею сохранять только текст, фото и видео 😊";
 
 type BufferedMediaGroup = {
   ctx: BotContext;
@@ -64,7 +65,12 @@ export function createMediaGroupMiddleware(
 
     bufferByGroupKey.delete(groupKey);
 
-    if (!buffered.ctx.from || buffered.items.length === 0) {
+    if (!buffered.ctx.from) {
+      return;
+    }
+
+    if (buffered.items.length === 0) {
+      await buffered.ctx.reply(UNSUPPORTED_CONTENT_MESSAGE);
       return;
     }
 

@@ -199,4 +199,22 @@ describe("media group middleware", () => {
       items: [{ type: "photo", fileId: "p1", textContent: null }]
     });
   });
+
+  it("replies with unsupported message when group has no supported media", async () => {
+    const middleware = createMediaGroupMiddleware(100);
+    const services = buildServices();
+    const ctx = buildCtx({
+      mediaGroupId: "group-unsupported",
+      services,
+      message: {
+        document: { file_id: "doc-1" }
+      }
+    });
+
+    await middleware(ctx as never, vi.fn());
+    await vi.advanceTimersByTimeAsync(120);
+
+    expect(ctx.reply).toHaveBeenCalledWith("Пока я умею сохранять только текст, фото и видео 😊");
+    expect(services.diaryService.createOrAppend).not.toHaveBeenCalled();
+  });
 });

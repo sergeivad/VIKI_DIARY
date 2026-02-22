@@ -193,70 +193,104 @@ describe("DiaryService", () => {
   });
 
   it("createOrAppend creates a new entry when no open entry exists", async () => {
-    const db = {} as PrismaClient;
-    const service = new DiaryService(db);
+    const now = new Date("2026-02-22T12:00:00.000Z");
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      diaryEntry: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1",
+          authorId: "user-1",
+          eventDate: new Date("2026-02-22T00:00:00.000Z"),
+          mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+          createdAt: now,
+          updatedAt: now,
+          items: []
+        })
+      }
+    };
 
-    const getOpenEntrySpy = vi.spyOn(service, "getOpenEntry").mockResolvedValue(null);
-    const createEntrySpy = vi.spyOn(service, "createEntry").mockResolvedValue({
-      id: "entry-1",
-      babyId: "baby-1",
-      authorId: "user-1",
-      eventDate: new Date("2026-02-22T00:00:00.000Z"),
-      mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
-      createdAt: new Date("2026-02-22T12:00:00.000Z"),
-      updatedAt: new Date("2026-02-22T12:00:00.000Z"),
-      items: []
-    });
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
 
     const result = await service.createOrAppend({
       babyId: "baby-1",
       authorId: "user-1",
       items: [{ type: "text", textContent: "hello" }],
-      now: new Date("2026-02-22T12:00:00.000Z")
+      now
     });
 
-    expect(getOpenEntrySpy).toHaveBeenCalledTimes(1);
-    expect(createEntrySpy).toHaveBeenCalledTimes(1);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.diaryEntry.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.diaryEntry.create).toHaveBeenCalledTimes(1);
     expect(result.mode).toBe("created");
   });
 
   it("createOrAppend appends to open entry", async () => {
-    const db = {} as PrismaClient;
+    const now = new Date("2026-02-22T12:00:00.000Z");
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      diaryEntry: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1",
+          authorId: "user-1",
+          eventDate: new Date("2026-02-22T00:00:00.000Z"),
+          mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+          createdAt: now,
+          updatedAt: now,
+          items: []
+        }),
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({ id: "entry-1" })
+          .mockResolvedValueOnce({
+            id: "entry-1",
+            babyId: "baby-1",
+            authorId: "user-1",
+            eventDate: new Date("2026-02-22T00:00:00.000Z"),
+            mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+            createdAt: now,
+            updatedAt: now,
+            items: []
+          }),
+        update: vi.fn().mockResolvedValue({ id: "entry-1" })
+      },
+      entryItem: {
+        findFirst: vi.fn().mockResolvedValue({ orderIndex: 1 }),
+        createMany: vi.fn().mockResolvedValue({ count: 1 })
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
     const service = new DiaryService(db);
-
-    vi.spyOn(service, "getOpenEntry").mockResolvedValue({
-      id: "entry-1",
-      babyId: "baby-1",
-      authorId: "user-1",
-      eventDate: new Date("2026-02-22T00:00:00.000Z"),
-      mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
-      createdAt: new Date("2026-02-22T12:00:00.000Z"),
-      updatedAt: new Date("2026-02-22T12:00:00.000Z"),
-      items: []
-    });
-
-    const addItemsSpy = vi.spyOn(service, "addItemsToEntry").mockResolvedValue({
-      id: "entry-1",
-      babyId: "baby-1",
-      authorId: "user-1",
-      eventDate: new Date("2026-02-22T00:00:00.000Z"),
-      mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
-      createdAt: new Date("2026-02-22T12:00:00.000Z"),
-      updatedAt: new Date("2026-02-22T12:00:00.000Z"),
-      items: []
-    });
 
     const result = await service.createOrAppend({
       babyId: "baby-1",
       authorId: "user-1",
       items: [{ type: "text", textContent: "hello" }],
-      now: new Date("2026-02-22T12:00:00.000Z")
+      now
     });
 
-    expect(addItemsSpy).toHaveBeenCalledWith({
-      entryId: "entry-1",
-      items: [{ type: "text", textContent: "hello" }],
-      now: new Date("2026-02-22T12:00:00.000Z")
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.entryItem.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          entryId: "entry-1",
+          type: EntryItemType.text,
+          textContent: "hello",
+          fileId: null,
+          orderIndex: 2
+        }
+      ]
     });
     expect(result.mode).toBe("appended");
   });
