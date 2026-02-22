@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BabyMemberRole {
+  owner
+  member
+}
+
+model User {
+  id         String       @id @default(uuid()) @db.Uuid
+  telegramId BigInt       @unique @map("telegram_id")
+  firstName  String       @map("first_name")
+  username   String?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  memberships BabyMember[]
+
+  @@map("users")
+}
+
+model Baby {
+  id         String       @id @default(uuid()) @db.Uuid
+  name       String
+  birthDate  DateTime     @map("birth_date") @db.Date
+  inviteToken String      @unique @map("invite_token")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  members    BabyMember[]
+
+  @@map("babies")
+}
+
+model BabyMember {
+  babyId     String        @map("baby_id") @db.Uuid
+  userId     String        @map("user_id") @db.Uuid
+  role       BabyMemberRole
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  baby       Baby          @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([babyId, userId])
+  @@index([userId])
+  @@map("baby_members")
+}
