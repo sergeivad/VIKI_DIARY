@@ -1,0 +1,47 @@
+# Deploy Checklist (Dokploy + VPS)
+
+## Prerequisites
+
+- Domain with DNS pointed to VPS.
+- Dokploy installed and reachable.
+- Telegram bot token and bot username.
+
+## Services
+
+- App service from `docker-compose.dokploy.yml`.
+- Postgres service from the same compose file.
+
+## Required env
+
+- `BOT_TOKEN`
+- `BOT_USERNAME`
+- `WEBHOOK_SECRET`
+- `WEBHOOK_URL`
+- `POSTGRES_PASSWORD`
+
+`DATABASE_URL` is auto-built in `docker-compose.dokploy.yml` from Postgres env values. Set it explicitly only if you use external PostgreSQL.
+
+Recommended `DATABASE_URL`:
+
+```text
+postgresql://postgres:<password>@postgres:5432/baby_diary?schema=public
+```
+
+## Release steps
+
+1. Push changes to configured branch.
+2. Wait for Dokploy auto-deploy to finish.
+3. Check logs for:
+   - `Applying Prisma migrations...`
+   - `Server started`
+   - `Webhook is set`
+4. Run smoke checks:
+
+```bash
+SMOKE_BASE_URL=https://bot.example.com BOT_TOKEN=<token> WEBHOOK_URL=https://bot.example.com/telegram/webhook npm run smoke:deploy
+```
+
+## Rollback
+
+1. Re-deploy previous commit/image from Dokploy.
+2. Run smoke checks again.

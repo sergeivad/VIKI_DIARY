@@ -14,6 +14,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "webhook:set": "tsx scripts/setWebhook.ts",
     "webhook:delete": "tsx scripts/deleteWebhook.ts",
+    "smoke:deploy": "tsx scripts/smoke.ts",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down"
   },

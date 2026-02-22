@@ -1,4 +1,4 @@
-# Baby Diary Bot (MVP v0.1, Stages 1-5)
+# Baby Diary Bot (MVP v0.1, Stages 1-6)
 
 Foundation for a multi-tenant Telegram baby diary bot.
 
@@ -36,13 +36,18 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - inline navigation (`◀️ Назад` / `Вперёд ▶️`)
   - `📎 Показать медиа` callback to send entry photos/videos
   - member notifications for newly created entries
+- Testing and deploy readiness (Stage 6):
+  - Dockerized app (`Dockerfile`, `.dockerignore`, `scripts/entrypoint.sh`)
+  - Dokploy compose file (`docker-compose.dokploy.yml`)
+  - health endpoints: `/health/live`, `/health/ready`
+  - deployment smoke script (`npm run smoke:deploy`)
 - Base services:
   - `user.service.ts` (`findOrCreateUser`)
   - `baby.service.ts` (`createBaby`, `getBabyByUser`, `getMembers`)
   - `invite.service.ts` (`acceptInvite`, `regenerateInvite`, `generateInvite`)
   - `diary.service.ts` (`createEntry`, `addItemsToEntry`, `getOpenEntry`, `createOrAppend`, `getHistory`)
   - `notification.service.ts` (`notifyOtherMembers`)
-- Webhook mode with Express.
+- Webhook-only production mode with Express.
 
 ## Quick Start
 
@@ -100,8 +105,81 @@ npm run webhook:delete
 - `npm run start` - run compiled app.
 - `npm run test` - run tests.
 - `npm run lint` - run ESLint.
+- `npm run smoke:deploy -- https://your-domain.com` - verify live/ready + webhook.
+
+## Health Endpoints
+
+- `GET /health` - legacy liveness endpoint (always 200 if process is up).
+- `GET /health/live` - liveness endpoint for container health checks.
+- `GET /health/ready` - readiness endpoint (checks DB connectivity).
+
+## Deploy to VPS with Dokploy
+
+Detailed runbook: `docs/deploy-dokploy.md`.
+
+### 1. Prepare Dokploy project
+
+1. Connect repository and set branch (`dev` or your release branch).
+2. Choose compose file: `docker-compose.dokploy.yml`.
+3. Configure domain with TLS in Dokploy (required by Telegram webhook).
+
+### 2. Configure environment variables
+
+Required app env:
+
+- `BOT_TOKEN`
+- `BOT_USERNAME`
+- `WEBHOOK_SECRET`
+- `WEBHOOK_URL` (must include webhook path, e.g. `https://bot.example.com/telegram/webhook`)
+
+Optional app env:
+
+- `WEBHOOK_PATH` (default `/telegram/webhook`)
+- `LOG_LEVEL` (default `info`)
+- `PORT` (default `3000`)
+- `DATABASE_URL` (override if you use an external DB; compose builds it from Postgres vars by default)
+
+Postgres env:
+
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+
+Example `DATABASE_URL` for compose service:
+
+```text
+postgresql://postgres:<password>@postgres:5432/baby_diary?schema=public
+```
+
+### 3. Deploy flow
+
+1. Dokploy builds image from `Dockerfile`.
+2. Container entrypoint runs `prisma migrate deploy`.
+3. App starts and sets Telegram webhook automatically at startup.
+4. Dokploy health-check uses `GET /health/live`.
+
+### 4. Post-deploy verification
+
+Run smoke checks:
+
+```bash
+SMOKE_BASE_URL=https://bot.example.com BOT_TOKEN=... WEBHOOK_URL=https://bot.example.com/telegram/webhook npm run smoke:deploy
+```
+
+Or pass base URL as an argument:
+
+```bash
+BOT_TOKEN=... WEBHOOK_URL=https://bot.example.com/telegram/webhook npm run smoke:deploy -- https://bot.example.com
+```
+
+Smoke script validates:
+
+- `GET /health/live`
+- `GET /health/ready`
+- Telegram `getWebhookInfo` (URL match, no `last_error_message`)
 
 ## Notes
 
 - Prisma 7 uses `prisma.config.ts` for datasource and migrations configuration.
 - `BOT_USERNAME` is required to build invite links (`https://t.me/<bot_username>?start=invite_<token>`).
+- Production deploy is webhook-only (long polling is not used).

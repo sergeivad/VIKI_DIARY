@@ -35,8 +35,22 @@ const services = {
 
 bot = createBot(services);
 
+app.get("/health/live", (_req, res) => {
+  res.status(200).json({ ok: true, status: "live" });
+});
+
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ ok: true, status: "ready" });
+  } catch (error) {
+    logger.error({ err: error }, "Readiness check failed");
+    res.status(503).json({ ok: false, status: "not_ready" });
+  }
+});
+
 app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true, status: "live" });
 });
 
 app.use(
