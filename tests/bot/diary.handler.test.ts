@@ -7,6 +7,7 @@ describe("handleDiaryMessage", () => {
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
+        id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
         createdAt: new Date("2026-02-22T12:00:00.000Z")
       }
@@ -42,7 +43,13 @@ describe("handleDiaryMessage", () => {
       authorId: "user-1",
       items: [{ type: "text", textContent: "Вика улыбнулась" }]
     });
-    expect(ctx.reply).toHaveBeenCalledWith("✅ Записано на 22.02.2026");
+    expect(ctx.reply).toHaveBeenCalledTimes(1);
+    const replyArgs = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(replyArgs[0]).toBe("✅ Записано на 22.02.2026");
+    expect(replyArgs[1].reply_markup.inline_keyboard).toEqual([
+      [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
+      [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
+    ]);
   });
 
   it("appends to open entry and replies with entry time", async () => {
@@ -86,6 +93,7 @@ describe("handleDiaryMessage", () => {
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
+        id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
         createdAt: new Date("2026-02-22T12:00:00.000Z")
       }
@@ -128,6 +136,7 @@ describe("handleDiaryMessage", () => {
     const createOrAppend = vi.fn().mockResolvedValue({
       mode: "created",
       entry: {
+        id: "entry-1",
         eventDate: new Date("2026-02-22T00:00:00.000Z"),
         createdAt: new Date("2026-02-22T12:00:00.000Z")
       }

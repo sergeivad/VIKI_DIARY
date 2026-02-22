@@ -42,10 +42,26 @@ type CreateOrAppendInput = {
   now?: Date;
 };
 
+type UpdateEventDateInput = {
+  entryId: string;
+  actorId: string;
+  eventDate: Date;
+};
+
+type DeleteEntryInput = {
+  entryId: string;
+  actorId: string;
+};
+
 type NormalizedDiaryItem = {
   type: EntryItemType;
   textContent: string | null;
   fileId: string | null;
+};
+
+type EntryAccessContext = {
+  id: string;
+  babyId: string;
 };
 
 function addMinutes(date: Date, minutes: number): Date {
@@ -97,6 +113,14 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
       fileId
     };
   });
+}
+
+function normalizeEventDate(value: Date): Date {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw new DiaryDomainError(DiaryErrorCode.invalidEventDate, "Event date is invalid");
+  }
+
+  return toUtcDateOnly(value);
 }
 
 export class DiaryService {
@@ -232,6 +256,45 @@ export class DiaryService {
     return updatedEntry;
   }
 
+  private async assertActorHasAccessToEntryTx(
+    tx: Prisma.TransactionClient,
+    entryId: string,
+    actorId: string
+  ): Promise<EntryAccessContext> {
+    const entry = await tx.diaryEntry.findUnique({
+      where: { id: entryId },
+      select: {
+        id: true,
+        babyId: true
+      }
+    });
+
+    if (!entry) {
+      throw new DiaryDomainError(DiaryErrorCode.entryNotFound, "Entry not found");
+    }
+
+    const membership = await tx.babyMember.findUnique({
+      where: {
+        babyId_userId: {
+          babyId: entry.babyId,
+          userId: actorId
+        }
+      },
+      select: {
+        babyId: true
+      }
+    });
+
+    if (!membership) {
+      throw new DiaryDomainError(
+        DiaryErrorCode.entryAccessDenied,
+        "User has no access to entry"
+      );
+    }
+
+    return entry;
+  }
+
   async getOpenEntry(
     babyId: string,
     authorId: string,
@@ -300,6 +363,40 @@ export class DiaryService {
         mode: "created" as const,
         entry
       };
+    });
+  }
+
+  async updateEventDate(input: UpdateEventDateInput): Promise<DiaryEntryDTO> {
+    const eventDate = normalizeEventDate(input.eventDate);
+
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+
+      const updated = await tx.diaryEntry.update({
+        where: { id: input.entryId },
+        data: { eventDate },
+        include: {
+          items: {
+            orderBy: {
+              orderIndex: "asc"
+            }
+          }
+        }
+      });
+
+      return updated;
+    });
+  }
+
+  async deleteEntry(input: DeleteEntryInput): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+
+      await tx.diaryEntry.delete({
+        where: {
+          id: input.entryId
+        }
+      });
     });
   }
 }

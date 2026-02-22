@@ -4,7 +4,9 @@ import { Bot } from "grammy";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { normalizeBotUsername } from "../utils/invite.js";
+import { dateInputConversation } from "./conversations/dateInput.js";
 import { onboardingConversation } from "./conversations/onboarding.js";
+import { handleEntryCallbacks } from "./handlers/callbacks.js";
 import { handleDiaryMessage } from "./handlers/diary.js";
 import { handleInvite } from "./handlers/invite.js";
 import { handleStart } from "./handlers/start.js";
@@ -21,6 +23,7 @@ export function createBot(services: Services): Bot<BotContext> {
 
   bot.use(conversations());
   bot.use(createConversation(onboardingConversation));
+  bot.use(createConversation(dateInputConversation, "dateInputConversation"));
   bot.use(createMediaGroupMiddleware());
 
   bot.command("start", handleStart);
@@ -48,6 +51,8 @@ export function createBot(services: Services): Bot<BotContext> {
       `Откройте ссылку вида https://t.me/${normalizeBotUsername(env.BOT_USERNAME)}?start=invite_<token>.`
     );
   });
+
+  bot.callbackQuery(/^entry:/, handleEntryCallbacks);
 
   bot.on("message", handleDiaryMessage);
 

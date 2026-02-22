@@ -1,4 +1,4 @@
-# Baby Diary Bot (MVP v0.1, Stages 1-3)
+# Baby Diary Bot (MVP v0.1, Stages 1-4)
 
 Foundation for a multi-tenant Telegram baby diary bot.
 
@@ -25,6 +25,11 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - media-group buffering with single batch save
   - 10-minute merge window for the same author (UTC today)
   - unsupported content fallback message
+- Entry management (Stage 4):
+  - inline actions after new entry: change date / delete
+  - quick event date change: yesterday / day before yesterday
+  - manual event date input via conversation
+  - delete flow with inline confirmation
 - Base services:
   - `user.service.ts` (`findOrCreateUser`)
   - `baby.service.ts` (`createBaby`, `getBabyByUser`, `getMembers`)
@@ -93,4 +98,4 @@ npm run webhook:delete
 
 - Prisma 7 uses `prisma.config.ts` for datasource and migrations configuration.
 - `BOT_USERNAME` is required to build invite links (`https://t.me/<bot_username>?start=invite_<token>`).
-- `/history`, entry management inline actions (delete/date), and member notifications are out of scope for current stage.
+- `/history` and member notifications are out of scope for current stage.

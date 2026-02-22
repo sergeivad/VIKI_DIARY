@@ -14,6 +14,7 @@ function buildServices(hasDiary = true) {
       createOrAppend: vi.fn().mockResolvedValue({
         mode: "created",
         entry: {
+          id: "entry-1",
           eventDate: new Date("2026-02-22T00:00:00.000Z"),
           createdAt: new Date("2026-02-22T12:00:00.000Z")
         }
@@ -104,7 +105,13 @@ describe("media group middleware", () => {
       ]
     });
 
-    expect(ctx1.reply).toHaveBeenCalledWith("✅ Записано на 22.02.2026");
+    expect(ctx1.reply).toHaveBeenCalledTimes(1);
+    const replyArgs = (ctx1.reply as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(replyArgs[0]).toBe("✅ Записано на 22.02.2026");
+    expect(replyArgs[1].reply_markup.inline_keyboard).toEqual([
+      [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
+      [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
+    ]);
     expect(ctx2.reply).not.toHaveBeenCalled();
     expect(ctx3.reply).not.toHaveBeenCalled();
   });

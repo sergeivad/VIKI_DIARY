@@ -315,4 +315,226 @@ describe("DiaryService", () => {
       code: DiaryErrorCode.invalidItems
     });
   });
+
+  it("updateEventDate updates entry date for diary member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValueOnce({
+          id: "entry-1",
+          babyId: "baby-1"
+        }),
+        update: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1",
+          authorId: "user-2",
+          eventDate: new Date("2026-02-21T00:00:00.000Z"),
+          mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+          createdAt: new Date("2026-02-22T12:00:00.000Z"),
+          updatedAt: new Date("2026-02-22T12:00:00.000Z"),
+          items: []
+        })
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({ babyId: "baby-1" })
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    const result = await service.updateEventDate({
+      entryId: "entry-1",
+      actorId: "user-1",
+      eventDate: new Date("2026-02-21T19:00:00.000Z")
+    });
+
+    expect(result.eventDate).toEqual(new Date("2026-02-21T00:00:00.000Z"));
+    expect(tx.diaryEntry.update).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: {
+        eventDate: new Date("2026-02-21T00:00:00.000Z")
+      },
+      include: {
+        items: {
+          orderBy: {
+            orderIndex: "asc"
+          }
+        }
+      }
+    });
+  });
+
+  it("updateEventDate throws entry_not_found when entry is missing", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        update: vi.fn()
+      },
+      babyMember: {
+        findUnique: vi.fn()
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.updateEventDate({
+        entryId: "entry-1",
+        actorId: "user-1",
+        eventDate: new Date("2026-02-21T00:00:00.000Z")
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryNotFound
+    });
+  });
+
+  it("updateEventDate throws entry_access_denied for non-member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1"
+        }),
+        update: vi.fn()
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.updateEventDate({
+        entryId: "entry-1",
+        actorId: "user-1",
+        eventDate: new Date("2026-02-21T00:00:00.000Z")
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryAccessDenied
+    });
+  });
+
+  it("updateEventDate throws invalid_event_date for invalid date input", async () => {
+    const db = {
+      $transaction: vi.fn()
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.updateEventDate({
+        entryId: "entry-1",
+        actorId: "user-1",
+        eventDate: new Date("invalid")
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.invalidEventDate
+    });
+  });
+
+  it("deleteEntry removes entry for diary member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1"
+        }),
+        delete: vi.fn().mockResolvedValue({ id: "entry-1" })
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({ babyId: "baby-1" })
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await service.deleteEntry({
+      entryId: "entry-1",
+      actorId: "user-1"
+    });
+
+    expect(tx.diaryEntry.delete).toHaveBeenCalledWith({
+      where: {
+        id: "entry-1"
+      }
+    });
+  });
+
+  it("deleteEntry throws entry_not_found when entry is missing", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        delete: vi.fn()
+      },
+      babyMember: {
+        findUnique: vi.fn()
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.deleteEntry({
+        entryId: "entry-1",
+        actorId: "user-1"
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryNotFound
+    });
+  });
+
+  it("deleteEntry throws entry_access_denied for non-member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1"
+        }),
+        delete: vi.fn()
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.deleteEntry({
+        entryId: "entry-1",
+        actorId: "user-1"
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryAccessDenied
+    });
+  });
 });

@@ -2,6 +2,7 @@ import type { NextFunction } from "grammy";
 
 import type { DiaryItemInput } from "../../services/diary.service.js";
 import type { BotContext } from "../../types/bot.js";
+import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
 
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
@@ -92,6 +93,13 @@ export function createMediaGroupMiddleware(
         authorId: user.id,
         items: buffered.items
       });
+
+      if (result.mode === "created") {
+        await buffered.ctx.reply(formatIngestAck(result), {
+          reply_markup: buildEntryActionsKeyboard(result.entry.id)
+        });
+        return;
+      }
 
       await buffered.ctx.reply(formatIngestAck(result));
     } catch (error) {
