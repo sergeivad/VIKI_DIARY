@@ -53,6 +53,11 @@ type DeleteEntryInput = {
   actorId: string;
 };
 
+type GetEntryByIdInput = {
+  entryId: string;
+  actorId: string;
+};
+
 type NormalizedDiaryItem = {
   type: EntryItemType;
   textContent: string | null;
@@ -385,6 +390,29 @@ export class DiaryService {
       });
 
       return updated;
+    });
+  }
+
+  async getEntryById(input: GetEntryByIdInput): Promise<DiaryEntryDTO> {
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+
+      const entry = await tx.diaryEntry.findUnique({
+        where: { id: input.entryId },
+        include: {
+          items: {
+            orderBy: {
+              orderIndex: "asc"
+            }
+          }
+        }
+      });
+
+      if (!entry) {
+        throw new DiaryDomainError(DiaryErrorCode.entryNotFound, "Entry not found");
+      }
+
+      return entry;
     });
   }
 

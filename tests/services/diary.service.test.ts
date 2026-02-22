@@ -537,4 +537,101 @@ describe("DiaryService", () => {
       code: DiaryErrorCode.entryAccessDenied
     });
   });
+
+  it("getEntryById returns entry for diary member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: "entry-1",
+            babyId: "baby-1"
+          })
+          .mockResolvedValueOnce({
+            id: "entry-1",
+            babyId: "baby-1",
+            authorId: "user-2",
+            eventDate: new Date("2026-02-21T00:00:00.000Z"),
+            mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+            createdAt: new Date("2026-02-22T12:00:00.000Z"),
+            updatedAt: new Date("2026-02-22T12:00:00.000Z"),
+            items: []
+          })
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({ babyId: "baby-1" })
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    const result = await service.getEntryById({
+      entryId: "entry-1",
+      actorId: "user-1"
+    });
+
+    expect(result.id).toBe("entry-1");
+    expect(result.eventDate).toEqual(new Date("2026-02-21T00:00:00.000Z"));
+  });
+
+  it("getEntryById throws entry_not_found when entry is missing", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      },
+      babyMember: {
+        findUnique: vi.fn()
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.getEntryById({
+        entryId: "entry-1",
+        actorId: "user-1"
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryNotFound
+    });
+  });
+
+  it("getEntryById throws entry_access_denied for non-member", async () => {
+    const tx = {
+      diaryEntry: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          babyId: "baby-1"
+        })
+      },
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue(null)
+      }
+    };
+
+    const db = {
+      $transaction: vi.fn(async (cb: (transactionClient: typeof tx) => Promise<unknown>) => cb(tx))
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await expect(
+      service.getEntryById({
+        entryId: "entry-1",
+        actorId: "user-1"
+      })
+    ).rejects.toMatchObject({
+      name: "DiaryDomainError",
+      code: DiaryErrorCode.entryAccessDenied
+    });
+  });
 });

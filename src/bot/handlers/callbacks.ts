@@ -137,10 +137,19 @@ export async function handleEntryCallbacks(ctx: BotContext): Promise<void> {
         actorId,
         eventDate
       });
+      const confirmationText = `📅 Дата записи изменена на ${formatRuDate(entry.eventDate)}`;
 
-      await ctx.editMessageText(`📅 Дата записи изменена на ${formatRuDate(entry.eventDate)}`, {
-        reply_markup: buildEntryActionsKeyboard(action.entryId)
-      });
+      try {
+        await ctx.editMessageText(confirmationText, {
+          reply_markup: buildEntryActionsKeyboard(action.entryId)
+        });
+      } catch (error) {
+        console.error("Failed to edit message after date update", { error });
+        await ctx.reply(confirmationText, {
+          reply_markup: buildEntryActionsKeyboard(action.entryId)
+        });
+      }
+
       await ctx.answerCallbackQuery();
       return;
     }
@@ -175,9 +184,17 @@ export async function handleEntryCallbacks(ctx: BotContext): Promise<void> {
     }
 
     if (action.type === "open-delete-menu") {
-      await ctx.editMessageText("Удалить запись? Это действие нельзя отменить.", {
-        reply_markup: buildDeleteConfirmationKeyboard(action.entryId)
+      const entry = await ctx.services.diaryService.getEntryById({
+        entryId: action.entryId,
+        actorId
       });
+
+      await ctx.editMessageText(
+        `Удалить запись от ${formatRuDate(entry.eventDate)}? Это действие нельзя отменить.`,
+        {
+        reply_markup: buildDeleteConfirmationKeyboard(action.entryId)
+        }
+      );
       await ctx.answerCallbackQuery();
       return;
     }

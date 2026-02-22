@@ -117,5 +117,42 @@ describe("dateInputConversation", () => {
 
     expect(ctx.reply).toHaveBeenCalledWith("Запись не найдена или уже удалена.");
   });
-});
 
+  it("falls back to chat confirmation when source message edit fails", async () => {
+    const waitFor = vi.fn().mockResolvedValue({ message: { text: "21.02.2026" } });
+    const updateEventDate = vi.fn().mockResolvedValue({
+      id: "entry-1",
+      eventDate: new Date("2026-02-21T00:00:00.000Z")
+    });
+    const ctx = {
+      services: {
+        diaryService: {
+          updateEventDate
+        }
+      },
+      api: {
+        editMessageText: vi.fn().mockRejectedValue(new Error("message to edit not found"))
+      },
+      reply: vi.fn()
+    };
+
+    await dateInputConversation(
+      { waitFor } as never,
+      ctx as never,
+      {
+        entryId: "entry-1",
+        actorId: "user-1",
+        sourceChatId: 101,
+        sourceMessageId: 77
+      }
+    );
+
+    expect(updateEventDate).toHaveBeenCalledTimes(1);
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "📅 Дата записи изменена на 21.02.2026",
+      expect.objectContaining({
+        reply_markup: expect.anything()
+      })
+    );
+  });
+});

@@ -24,6 +24,10 @@ function buildCtx(data: string) {
         findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
       },
       diaryService: {
+        getEntryById: vi.fn().mockResolvedValue({
+          id: "entry-1",
+          eventDate: new Date("2026-02-21T00:00:00.000Z")
+        }),
         updateEventDate: vi.fn().mockResolvedValue({
           id: "entry-1",
           eventDate: new Date("2026-02-21T00:00:00.000Z")
@@ -34,6 +38,7 @@ function buildCtx(data: string) {
     conversation: {
       enter: vi.fn().mockResolvedValue(undefined)
     },
+    reply: vi.fn().mockResolvedValue(undefined),
     editMessageText: vi.fn().mockResolvedValue(undefined),
     answerCallbackQuery: vi.fn().mockResolvedValue(undefined)
   };
@@ -87,6 +92,23 @@ describe("handleEntryCallbacks", () => {
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith();
   });
 
+  it("falls back to new message when source message edit fails after date update", async () => {
+    const ctx = buildCtx("entry:date:quick:yesterday:entry-1");
+    ctx.editMessageText = vi.fn().mockRejectedValue(new Error("message is not modified"));
+    ctx.reply = vi.fn().mockResolvedValue(undefined);
+
+    await handleEntryCallbacks(ctx as never);
+
+    expect(ctx.services.diaryService.updateEventDate).toHaveBeenCalledTimes(1);
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "📅 Дата записи изменена на 21.02.2026",
+      expect.objectContaining({
+        reply_markup: expect.anything()
+      })
+    );
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith();
+  });
+
   it("starts manual date conversation", async () => {
     const ctx = buildCtx("entry:date:manual:entry-1");
 
@@ -106,7 +128,7 @@ describe("handleEntryCallbacks", () => {
     await handleEntryCallbacks(openCtx as never);
 
     expect(openCtx.editMessageText).toHaveBeenCalledWith(
-      "Удалить запись? Это действие нельзя отменить.",
+      "Удалить запись от 21.02.2026? Это действие нельзя отменить.",
       expect.objectContaining({
         reply_markup: expect.anything()
       })
@@ -138,4 +160,3 @@ describe("handleEntryCallbacks", () => {
     });
   });
 });
-

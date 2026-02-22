@@ -43,22 +43,14 @@ export async function dateInputConversation(
   }
 
   const parsedDate = await askForDate(conversation, ctx);
+  let updatedEntry: { eventDate: Date } | null = null;
 
   try {
-    const updatedEntry = await ctx.services.diaryService.updateEventDate({
+    updatedEntry = await ctx.services.diaryService.updateEventDate({
       entryId: payload.entryId,
       actorId: payload.actorId,
       eventDate: parsedDate
     });
-
-    await ctx.api.editMessageText(
-      payload.sourceChatId,
-      payload.sourceMessageId,
-      `📅 Дата записи изменена на ${formatRuDate(updatedEntry.eventDate)}`,
-      {
-        reply_markup: buildEntryActionsKeyboard(payload.entryId)
-      }
-    );
   } catch (error) {
     const message = mapDiaryActionErrorMessage(error);
     if (message) {
@@ -68,5 +60,28 @@ export async function dateInputConversation(
 
     console.error("Failed to update entry date in conversation", { error });
     await ctx.reply("Не удалось изменить дату. Попробуйте ещё раз.");
+    return;
+  }
+
+  if (!updatedEntry) {
+    return;
+  }
+
+  const confirmationText = `📅 Дата записи изменена на ${formatRuDate(updatedEntry.eventDate)}`;
+
+  try {
+    await ctx.api.editMessageText(
+      payload.sourceChatId,
+      payload.sourceMessageId,
+      confirmationText,
+      {
+        reply_markup: buildEntryActionsKeyboard(payload.entryId)
+      }
+    );
+  } catch (error) {
+    console.error("Failed to edit source message after date update", { error });
+    await ctx.reply(confirmationText, {
+      reply_markup: buildEntryActionsKeyboard(payload.entryId)
+    });
   }
 }
