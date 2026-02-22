@@ -43,6 +43,6 @@ model BabyMember {
   user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([babyId, userId])
-  @@index([userId])
+  @@unique([userId])
   @@map("baby_members")
 }

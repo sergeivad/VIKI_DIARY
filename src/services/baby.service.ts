@@ -8,6 +8,40 @@ export type CreateBabyInput = {
   ownerUserId: string;
 };
 
+function isSingleDiaryConstraintError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: string;
+    meta?: { target?: string[] | string };
+  };
+
+  if (candidate.code !== "P2002") {
+    return false;
+  }
+
+  const target = candidate.meta?.target;
+  if (Array.isArray(target)) {
+    return target.some((field) => {
+      const value = String(field);
+      return value.includes("user_id") || value.includes("userId");
+    });
+  }
+
+  if (typeof target === "string") {
+    return target.includes("user_id") || target.includes("userId");
+  }
+
+  if (target !== undefined) {
+    const value = String(target);
+    return value.includes("user_id") || value.includes("userId");
+  }
+
+  return false;
+}
+
 export class BabyService {
   constructor(private readonly db: PrismaClient) {}
 
@@ -17,25 +51,32 @@ export class BabyService {
       throw new Error("User already belongs to a baby diary");
     }
 
-    return this.db.$transaction(async (tx) => {
-      const baby = await tx.baby.create({
-        data: {
-          name: input.name,
-          birthDate: input.birthDate,
-          inviteToken: generateInviteToken()
-        }
-      });
+    try {
+      return await this.db.$transaction(async (tx) => {
+        const baby = await tx.baby.create({
+          data: {
+            name: input.name,
+            birthDate: input.birthDate,
+            inviteToken: generateInviteToken()
+          }
+        });
 
-      await tx.babyMember.create({
-        data: {
-          babyId: baby.id,
-          userId: input.ownerUserId,
-          role: BabyMemberRole.owner
-        }
-      });
+        await tx.babyMember.create({
+          data: {
+            babyId: baby.id,
+            userId: input.ownerUserId,
+            role: BabyMemberRole.owner
+          }
+        });
 
-      return baby;
-    });
+        return baby;
+      });
+    } catch (error) {
+      if (isSingleDiaryConstraintError(error)) {
+        throw new Error("User already belongs to a baby diary");
+      }
+      throw error;
+    }
   }
 
   async getBabyByUser(userId: string): Promise<Baby | null> {

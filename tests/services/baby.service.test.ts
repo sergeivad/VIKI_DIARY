@@ -73,4 +73,28 @@ describe("BabyService", () => {
 
     expect(db.$transaction).not.toHaveBeenCalled();
   });
+
+  it("createBaby maps unique constraint race to domain error", async () => {
+    const db = {
+      babyMember: {
+        findFirst: vi.fn().mockResolvedValue(null)
+      },
+      $transaction: vi.fn().mockRejectedValue({
+        code: "P2002",
+        meta: {
+          target: ["user_id"]
+        }
+      })
+    } as unknown as PrismaClient;
+
+    const service = new BabyService(db);
+
+    await expect(
+      service.createBaby({
+        name: "Vika",
+        birthDate: new Date("2024-01-01"),
+        ownerUserId: "user-1"
+      })
+    ).rejects.toThrow("User already belongs to a baby diary");
+  });
 });
