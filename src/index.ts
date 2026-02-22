@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { prisma } from "./db/prisma.js";
 import { BabyService } from "./services/baby.service.js";
+import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { UserService } from "./services/user.service.js";
 
@@ -14,7 +15,8 @@ const app = express();
 const services = {
   userService: new UserService(prisma),
   babyService: new BabyService(prisma),
-  inviteService: new InviteService(prisma, env.BOT_USERNAME)
+  inviteService: new InviteService(prisma, env.BOT_USERNAME),
+  diaryService: new DiaryService(prisma)
 };
 
 const bot = createBot(services);

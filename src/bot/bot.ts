@@ -5,8 +5,10 @@ import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { normalizeBotUsername } from "../utils/invite.js";
 import { onboardingConversation } from "./conversations/onboarding.js";
+import { handleDiaryMessage } from "./handlers/diary.js";
 import { handleInvite } from "./handlers/invite.js";
 import { handleStart } from "./handlers/start.js";
+import { createMediaGroupMiddleware } from "./middleware/mediaGroup.js";
 import type { BotContext, Services } from "../types/bot.js";
 
 export function createBot(services: Services): Bot<BotContext> {
@@ -19,6 +21,7 @@ export function createBot(services: Services): Bot<BotContext> {
 
   bot.use(conversations());
   bot.use(createConversation(onboardingConversation));
+  bot.use(createMediaGroupMiddleware());
 
   bot.command("start", handleStart);
   bot.command("invite", handleInvite);
@@ -45,6 +48,8 @@ export function createBot(services: Services): Bot<BotContext> {
       `Откройте ссылку вида https://t.me/${normalizeBotUsername(env.BOT_USERNAME)}?start=invite_<token>.`
     );
   });
+
+  bot.on("message", handleDiaryMessage);
 
   bot.catch((error) => {
     logger.error({ err: error.error }, "Unhandled bot error");

@@ -31,3 +31,16 @@ export function formatRuDate(date: Date): string {
     timeZone: "UTC"
   }).format(date);
 }
+
+export function formatRuTime(date: Date): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC"
+  }).format(date);
+}
+
+export function toUtcDateOnly(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}

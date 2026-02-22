@@ -11,24 +11,32 @@ enum BabyMemberRole {
   member
 }
 
+enum EntryItemType {
+  text
+  photo
+  video
+}
+
 model User {
-  id         String       @id @default(uuid()) @db.Uuid
-  telegramId BigInt       @unique @map("telegram_id")
-  firstName  String       @map("first_name")
-  username   String?
-  createdAt  DateTime     @default(now()) @map("created_at")
-  memberships BabyMember[]
+  id            String       @id @default(uuid()) @db.Uuid
+  telegramId    BigInt       @unique @map("telegram_id")
+  firstName     String       @map("first_name")
+  username      String?
+  createdAt     DateTime     @default(now()) @map("created_at")
+  memberships   BabyMember[]
+  diaryEntries  DiaryEntry[] @relation("DiaryEntryAuthor")
 
   @@map("users")
 }
 
 model Baby {
-  id         String       @id @default(uuid()) @db.Uuid
-  name       String
-  birthDate  DateTime     @map("birth_date") @db.Date
-  inviteToken String      @unique @map("invite_token")
-  createdAt  DateTime     @default(now()) @map("created_at")
-  members    BabyMember[]
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  birthDate     DateTime     @map("birth_date") @db.Date
+  inviteToken   String       @unique @map("invite_token")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  members       BabyMember[]
+  diaryEntries  DiaryEntry[]
 
   @@map("babies")
 }
@@ -45,4 +53,37 @@ model BabyMember {
   @@id([babyId, userId])
   @@unique([userId])
   @@map("baby_members")
+}
+
+model DiaryEntry {
+  id               String      @id @default(uuid()) @db.Uuid
+  babyId           String      @map("baby_id") @db.Uuid
+  authorId         String      @map("author_id") @db.Uuid
+  eventDate        DateTime    @map("event_date") @db.Date
+  mergeWindowUntil DateTime    @map("merge_window_until")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  baby             Baby        @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  author           User        @relation("DiaryEntryAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  items            EntryItem[]
+
+  @@index([babyId, createdAt])
+  @@index([babyId, authorId, mergeWindowUntil])
+  @@map("diary_entries")
+}
+
+model EntryItem {
+  id          String       @id @default(uuid()) @db.Uuid
+  entryId     String       @map("entry_id") @db.Uuid
+  type        EntryItemType
+  textContent String?      @map("text_content")
+  fileId      String?      @map("file_id")
+  orderIndex  Int          @map("order_index")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  entry       DiaryEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId, orderIndex])
+  @@map("entry_items")
 }
