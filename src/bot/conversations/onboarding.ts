@@ -73,7 +73,7 @@ export async function onboardingConversation(
     [
       `Дневник создан: ${baby.name}.`,
       `Дата рождения: ${formatRuDate(baby.birthDate)}.`,
-      `Инвайт-ссылка для второго родителя: https://t.me/<your_bot>?start=invite_${baby.inviteToken}`
+      `Инвайт-ссылка для второго родителя: ${ctx.services.inviteService.buildInviteLink(baby.inviteToken)}`
     ].join("\n")
   );
 }

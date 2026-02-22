@@ -7,6 +7,9 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   BOT_TOKEN: z.string().min(1, "BOT_TOKEN is required"),
+  BOT_USERNAME: z
+    .string()
+    .regex(/^@?[A-Za-z0-9_]{5,32}$/, "BOT_USERNAME must be a valid Telegram username"),
   WEBHOOK_PATH: z.string().startsWith("/").default("/telegram/webhook"),
   WEBHOOK_SECRET: z.string().min(1, "WEBHOOK_SECRET is required"),
   WEBHOOK_URL: z.string().url("WEBHOOK_URL must be a valid URL"),

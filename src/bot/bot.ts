@@ -3,7 +3,9 @@ import { Bot } from "grammy";
 
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { normalizeBotUsername } from "../utils/invite.js";
 import { onboardingConversation } from "./conversations/onboarding.js";
+import { handleInvite } from "./handlers/invite.js";
 import { handleStart } from "./handlers/start.js";
 import type { BotContext, Services } from "../types/bot.js";
 
@@ -19,6 +21,7 @@ export function createBot(services: Services): Bot<BotContext> {
   bot.use(createConversation(onboardingConversation));
 
   bot.command("start", handleStart);
+  bot.command("invite", handleInvite);
 
   bot.callbackQuery("onboarding:create", async (ctx) => {
     if (!ctx.from) {
@@ -38,7 +41,9 @@ export function createBot(services: Services): Bot<BotContext> {
 
   bot.callbackQuery("onboarding:invite-help", async (ctx) => {
     await ctx.answerCallbackQuery();
-    await ctx.reply("Откройте ссылку вида https://t.me/<your_bot>?start=invite_<token>. Полный флоу будет в этапе 2.");
+    await ctx.reply(
+      `Откройте ссылку вида https://t.me/${normalizeBotUsername(env.BOT_USERNAME)}?start=invite_<token>.`
+    );
   });
 
   bot.catch((error) => {

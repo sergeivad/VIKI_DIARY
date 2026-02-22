@@ -20,6 +20,9 @@ describe("onboardingConversation", () => {
         babyService: {
           getBabyByUser: vi.fn().mockResolvedValue(null),
           createBaby
+        },
+        inviteService: {
+          buildInviteLink: vi.fn().mockReturnValue("https://t.me/bot?start=invite_token-1")
         }
       },
       reply: vi.fn()

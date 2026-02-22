@@ -1,21 +1,12 @@
 import { InlineKeyboard } from "grammy";
 
 import type { BotContext } from "../../types/bot.js";
+import { parseInviteStartPayload } from "../../utils/invite.js";
 
 const startKeyboard = new InlineKeyboard()
   .text("Создать дневник", "onboarding:create")
   .row()
   .text("У меня есть инвайт-ссылка", "onboarding:invite-help");
-
-function parseInviteToken(match: string): string | null {
-  const trimmed = match.trim();
-  if (!trimmed.startsWith("invite_")) {
-    return null;
-  }
-
-  const token = trimmed.slice("invite_".length);
-  return token.length > 0 ? token : null;
-}
 
 export async function handleStart(ctx: BotContext): Promise<void> {
   if (!ctx.from) {
@@ -28,15 +19,29 @@ export async function handleStart(ctx: BotContext): Promise<void> {
     username: ctx.from.username ?? null
   });
 
-  const inviteToken = typeof ctx.match === "string" ? parseInviteToken(ctx.match) : null;
+  const inviteToken = typeof ctx.match === "string" ? parseInviteStartPayload(ctx.match) : null;
   if (inviteToken) {
-    await ctx.reply(
-      [
-        "Инвайт-ссылка распознана.",
-        "Полное присоединение по инвайту будет доступно на этапе 2.",
-        `Токен: ${inviteToken}`
-      ].join("\n")
-    );
+    try {
+      const baby = await ctx.services.inviteService.acceptInvite(inviteToken, user.id);
+      await ctx.reply(`Вы присоединились к дневнику ${baby.name}.`);
+    } catch (error) {
+      if (error instanceof Error && error.message === "Invite token is invalid") {
+        await ctx.reply("Инвайт-ссылка недействительна или устарела.");
+        return;
+      }
+
+      if (error instanceof Error && error.message === "User already belongs to a baby diary") {
+        const existingBaby = await ctx.services.babyService.getBabyByUser(user.id);
+        if (existingBaby) {
+          await ctx.reply(`Вы уже состоите в дневнике: ${existingBaby.name}.`);
+        } else {
+          await ctx.reply("Вы уже состоите в другом дневнике.");
+        }
+        return;
+      }
+
+      throw error;
+    }
     return;
   }
 
@@ -45,7 +50,7 @@ export async function handleStart(ctx: BotContext): Promise<void> {
     await ctx.reply(
       [
         `Вы уже состоите в дневнике: ${existingBaby.name}.`,
-        "Следующие команды будут подключены в следующих этапах: /history, /invite."
+        "Команда /invite доступна владельцу дневника."
       ].join("\n")
     );
     return;
