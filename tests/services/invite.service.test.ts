@@ -1,6 +1,7 @@
 import { BabyMemberRole, type PrismaClient } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
+import { InviteErrorCode } from "../../src/services/invite.errors.js";
 import { InviteService } from "../../src/services/invite.service.js";
 
 describe("InviteService", () => {
@@ -51,9 +52,10 @@ describe("InviteService", () => {
 
     const service = new InviteService(db, "baby_diary_bot");
 
-    await expect(service.acceptInvite("bad-token", "user-2")).rejects.toThrow(
-      "Invite token is invalid"
-    );
+    await expect(service.acceptInvite("bad-token", "user-2")).rejects.toMatchObject({
+      name: "InviteDomainError",
+      code: InviteErrorCode.inviteTokenInvalid
+    });
   });
 
   it("acceptInvite throws when user already belongs to another diary", async () => {
@@ -85,9 +87,10 @@ describe("InviteService", () => {
 
     const service = new InviteService(db, "baby_diary_bot");
 
-    await expect(service.acceptInvite("token-1", "user-2")).rejects.toThrow(
-      "User already belongs to a baby diary"
-    );
+    await expect(service.acceptInvite("token-1", "user-2")).rejects.toMatchObject({
+      name: "InviteDomainError",
+      code: InviteErrorCode.userAlreadyInDiary
+    });
     expect(db.babyMember.create).not.toHaveBeenCalled();
   });
 
@@ -136,9 +139,43 @@ describe("InviteService", () => {
 
     const service = new InviteService(db, "baby_diary_bot");
 
-    await expect(service.regenerateInvite("baby-1", "user-2")).rejects.toThrow(
-      "Only owner can regenerate invite"
-    );
+    await expect(service.regenerateInvite("baby-1", "user-2")).rejects.toMatchObject({
+      name: "InviteDomainError",
+      code: InviteErrorCode.ownerRequired
+    });
     expect(db.baby.update).not.toHaveBeenCalled();
+  });
+
+  it("regenerateInvite retries on invite token collision", async () => {
+    const db = {
+      babyMember: {
+        findUnique: vi.fn().mockResolvedValue({
+          babyId: "baby-1",
+          userId: "user-1",
+          role: BabyMemberRole.owner,
+          createdAt: new Date("2024-01-01")
+        })
+      },
+      baby: {
+        update: vi
+          .fn()
+          .mockRejectedValueOnce({
+            code: "P2002",
+            meta: {
+              target: ["invite_token"]
+            }
+          })
+          .mockResolvedValue({
+            id: "baby-1",
+            inviteToken: "new-token"
+          })
+      }
+    } as unknown as PrismaClient;
+
+    const service = new InviteService(db, "baby_diary_bot");
+    const token = await service.regenerateInvite("baby-1", "user-1");
+
+    expect(token.length).toBeGreaterThan(0);
+    expect(db.baby.update).toHaveBeenCalledTimes(2);
   });
 });

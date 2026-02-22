@@ -2,13 +2,27 @@ import { BabyMemberRole } from "@prisma/client";
 
 import type { BotContext } from "../../types/bot.js";
 
-function shouldRegenerateInvite(match: unknown): boolean {
+type InviteCommandAction = "show" | "regenerate" | "invalid";
+
+function parseInviteCommandAction(match: unknown): InviteCommandAction {
   if (typeof match !== "string") {
-    return false;
+    return "show";
   }
 
-  const command = match.trim().toLowerCase();
-  return command === "regenerate" || command === "regen";
+  const trimmed = match.trim().toLowerCase();
+  if (trimmed.length === 0) {
+    return "show";
+  }
+
+  const parts = trimmed.split(/\s+/);
+  const command = parts[0];
+  const hasExtraArgs = parts.length > 1;
+
+  if (command === "regenerate" || command === "regen") {
+    return hasExtraArgs ? "invalid" : "regenerate";
+  }
+
+  return "invalid";
 }
 
 export async function handleInvite(ctx: BotContext): Promise<void> {
@@ -33,7 +47,13 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const needsRegeneration = shouldRegenerateInvite(ctx.match);
+  const action = parseInviteCommandAction(ctx.match);
+  if (action === "invalid") {
+    await ctx.reply("Неизвестный аргумент. Используйте /invite или /invite regenerate.");
+    return;
+  }
+
+  const needsRegeneration = action === "regenerate";
   const token = needsRegeneration
     ? await ctx.services.inviteService.regenerateInvite(inviteInfo.babyId, user.id)
     : inviteInfo.inviteToken;

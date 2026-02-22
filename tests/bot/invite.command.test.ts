@@ -136,4 +136,38 @@ describe("handleInvite", () => {
 
     expect(ctx.reply).toHaveBeenCalledWith("Вы пока не состоите в дневнике.");
   });
+
+  it("returns usage for invalid command args", async () => {
+    const ctx = {
+      from: {
+        id: 42,
+        first_name: "Sergei",
+        username: "sergei"
+      },
+      match: "regenerate now",
+      services: {
+        userService: {
+          findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
+        },
+        inviteService: {
+          getInviteInfoForUser: vi.fn().mockResolvedValue({
+            babyId: "baby-1",
+            babyName: "Vika",
+            role: BabyMemberRole.owner,
+            inviteToken: "token-1"
+          }),
+          regenerateInvite: vi.fn(),
+          buildInviteLink: vi.fn()
+        }
+      },
+      reply: vi.fn()
+    };
+
+    await handleInvite(ctx as never);
+
+    expect(ctx.reply).toHaveBeenCalledWith(
+      "Неизвестный аргумент. Используйте /invite или /invite regenerate."
+    );
+    expect(ctx.services.inviteService.regenerateInvite).not.toHaveBeenCalled();
+  });
 });

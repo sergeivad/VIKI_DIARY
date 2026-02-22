@@ -4,6 +4,7 @@ import {
   type PrismaClient
 } from "@prisma/client";
 
+import { InviteDomainError, InviteErrorCode } from "./invite.errors.js";
 import { generateInviteToken } from "../utils/token.js";
 import { buildInviteLink } from "../utils/invite.js";
 
@@ -43,7 +44,43 @@ function isSingleDiaryConstraintError(error: unknown): boolean {
   return false;
 }
 
+function isInviteTokenConstraintError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: string;
+    meta?: { target?: string[] | string };
+  };
+
+  if (candidate.code !== "P2002") {
+    return false;
+  }
+
+  const target = candidate.meta?.target;
+  if (Array.isArray(target)) {
+    return target.some((field) => {
+      const value = String(field);
+      return value.includes("invite_token") || value.includes("inviteToken");
+    });
+  }
+
+  if (typeof target === "string") {
+    return target.includes("invite_token") || target.includes("inviteToken");
+  }
+
+  if (target !== undefined) {
+    const value = String(target);
+    return value.includes("invite_token") || value.includes("inviteToken");
+  }
+
+  return false;
+}
+
 export class InviteService {
+  private readonly maxRegenerateAttempts = 5;
+
   constructor(
     private readonly db: PrismaClient,
     private readonly botUsername: string
@@ -56,7 +93,10 @@ export class InviteService {
     });
 
     if (!baby) {
-      throw new Error("Baby not found");
+      throw new InviteDomainError(
+        InviteErrorCode.babyMembershipNotFound,
+        "Baby not found"
+      );
     }
 
     return baby.inviteToken;
@@ -93,7 +133,10 @@ export class InviteService {
       where: { inviteToken }
     });
     if (!baby) {
-      throw new Error("Invite token is invalid");
+      throw new InviteDomainError(
+        InviteErrorCode.inviteTokenInvalid,
+        "Invite token is invalid"
+      );
     }
 
     const existingMembership = await this.db.babyMember.findFirst({
@@ -110,7 +153,10 @@ export class InviteService {
     });
 
     if (existingMembership) {
-      throw new Error("User already belongs to a baby diary");
+      throw new InviteDomainError(
+        InviteErrorCode.userAlreadyInDiary,
+        "User already belongs to a baby diary"
+      );
     }
 
     try {
@@ -123,7 +169,10 @@ export class InviteService {
       });
     } catch (error) {
       if (isSingleDiaryConstraintError(error)) {
-        throw new Error("User already belongs to a baby diary");
+        throw new InviteDomainError(
+          InviteErrorCode.userAlreadyInDiary,
+          "User already belongs to a baby diary"
+        );
       }
       throw error;
     }
@@ -142,20 +191,39 @@ export class InviteService {
     });
 
     if (!membership) {
-      throw new Error("Baby membership not found");
+      throw new InviteDomainError(
+        InviteErrorCode.babyMembershipNotFound,
+        "Baby membership not found"
+      );
     }
 
     if (membership.role !== BabyMemberRole.owner) {
-      throw new Error("Only owner can regenerate invite");
+      throw new InviteDomainError(
+        InviteErrorCode.ownerRequired,
+        "Only owner can regenerate invite"
+      );
     }
 
-    const token = generateInviteToken();
-    await this.db.baby.update({
-      where: { id: babyId },
-      data: { inviteToken: token }
-    });
+    for (let attempt = 0; attempt < this.maxRegenerateAttempts; attempt += 1) {
+      const token = generateInviteToken();
+      try {
+        await this.db.baby.update({
+          where: { id: babyId },
+          data: { inviteToken: token }
+        });
+        return token;
+      } catch (error) {
+        if (isInviteTokenConstraintError(error) && attempt < this.maxRegenerateAttempts - 1) {
+          continue;
+        }
+        throw error;
+      }
+    }
 
-    return token;
+    throw new InviteDomainError(
+      InviteErrorCode.inviteTokenGenerationFailed,
+      "Failed to generate unique invite token"
+    );
   }
 
   buildInviteLink(inviteToken: string): string {

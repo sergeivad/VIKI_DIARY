@@ -1,5 +1,6 @@
 import { InlineKeyboard } from "grammy";
 
+import { InviteErrorCode, isInviteDomainError } from "../../services/invite.errors.js";
 import type { BotContext } from "../../types/bot.js";
 import { parseInviteStartPayload } from "../../utils/invite.js";
 
@@ -25,12 +26,18 @@ export async function handleStart(ctx: BotContext): Promise<void> {
       const baby = await ctx.services.inviteService.acceptInvite(inviteToken, user.id);
       await ctx.reply(`Вы присоединились к дневнику ${baby.name}.`);
     } catch (error) {
-      if (error instanceof Error && error.message === "Invite token is invalid") {
+      if (
+        isInviteDomainError(error) &&
+        error.code === InviteErrorCode.inviteTokenInvalid
+      ) {
         await ctx.reply("Инвайт-ссылка недействительна или устарела.");
         return;
       }
 
-      if (error instanceof Error && error.message === "User already belongs to a baby diary") {
+      if (
+        isInviteDomainError(error) &&
+        error.code === InviteErrorCode.userAlreadyInDiary
+      ) {
         const existingBaby = await ctx.services.babyService.getBabyByUser(user.id);
         if (existingBaby) {
           await ctx.reply(`Вы уже состоите в дневнике: ${existingBaby.name}.`);

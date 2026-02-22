@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { handleStart } from "../../src/bot/handlers/start.js";
+import { InviteDomainError, InviteErrorCode } from "../../src/services/invite.errors.js";
 
 describe("handleStart invite flow", () => {
   it("joins diary on valid invite token", async () => {
@@ -44,7 +45,14 @@ describe("handleStart invite flow", () => {
           findOrCreateUser: vi.fn().mockResolvedValue({ id: "user-1" })
         },
         inviteService: {
-          acceptInvite: vi.fn().mockRejectedValue(new Error("Invite token is invalid"))
+          acceptInvite: vi
+            .fn()
+            .mockRejectedValue(
+              new InviteDomainError(
+                InviteErrorCode.inviteTokenInvalid,
+                "Invite token is invalid"
+              )
+            )
         },
         babyService: {
           getBabyByUser: vi.fn()
@@ -73,7 +81,12 @@ describe("handleStart invite flow", () => {
         inviteService: {
           acceptInvite: vi
             .fn()
-            .mockRejectedValue(new Error("User already belongs to a baby diary"))
+            .mockRejectedValue(
+              new InviteDomainError(
+                InviteErrorCode.userAlreadyInDiary,
+                "User already belongs to a baby diary"
+              )
+            )
         },
         babyService: {
           getBabyByUser: vi.fn().mockResolvedValue({ id: "baby-1", name: "Vika" })
