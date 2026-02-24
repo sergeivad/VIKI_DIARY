@@ -20,9 +20,11 @@ Telegram-бот для ведения дневника о малыше. Роди
 - Уведомления другим участникам дневника о новой записи
 - Вежливый отказ на неподдерживаемый контент (стикеры, документы, геолокация и т.д.)
 
-### Что НЕ входит в MVP (следующие итерации)
-- Расшифровка голосовых через Whisper
-- Авто-теги через Claude Haiku
+### Реализовано после MVP
+- Расшифровка голосовых через Whisper (v0.2)
+- Авто-теги через Claude Haiku (v0.2)
+
+### Что НЕ реализовано (следующие итерации)
 - Редактирование записей
 - Конспект за месяц (`/summary`)
 - Фильтрация по тегам
@@ -66,8 +68,9 @@ Telegram-бот для ведения дневника о малыше. Роди
 - Текстовые сообщения
 - Фото (в том числе с caption — подпись сохраняется вместе с фото)
 - Видео (в том числе с caption)
+- Голосовые сообщения (транскрибируются через Whisper, макс 5 мин)
 
-**Неподдерживаемый контент:** стикеры, документы, голосовые (в MVP), геолокация, контакты и прочее. Бот отвечает: «Пока я умею сохранять только текст, фото и видео 😊»
+**Неподдерживаемый контент:** стикеры, документы, геолокация, контакты и прочее. Бот отвечает: «Пока я умею сохранять только текст, фото, видео и голосовые 😊»
 
 **Обработка media_group:** когда пользователь отправляет несколько фото/видео разом, Telegram шлёт их отдельными сообщениями с одинаковым `media_group_id`. Бот собирает их пачкой (буфер ~500мс после первого сообщения из группы) и сохраняет как один батч. Одно подтверждение на всю группу.
 
@@ -158,7 +161,6 @@ src/
       invite.ts         ← /invite
       callbacks.ts      ← inline-кнопки (дата, удаление, медиа)
     middleware/
-      auth.ts           ← определение пользователя и привязка к малышу
       mediaGroup.ts     ← буфер для media_group_id
     conversations/
       onboarding.ts     ← диалог создания дневника
@@ -171,6 +173,8 @@ src/
     user.service.ts     ← findOrCreateUser
     invite.service.ts   ← generateInvite, acceptInvite, regenerateInvite
     notification.service.ts ← notifyMembers
+    transcription.service.ts ← расшифровка голосовых (Whisper)
+    tagging.service.ts   ← авто-теги (Claude Haiku)
 
   db/                   ← работа с базой
     prisma.ts           ← Prisma client
@@ -250,6 +254,7 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 | baby_id | UUID | FK → babies |
 | author_id | UUID | FK → users |
 | event_date | DATE | Дата события (по умолчанию today) |
+| tags | TEXT[] | Авто-теги (Claude Haiku) |
 | merge_window_until | TIMESTAMP | created_at + 10 мин |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
@@ -259,7 +264,7 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 |------|-----|----------|
 | id | UUID | PK |
 | entry_id | UUID | FK → diary_entries |
-| type | ENUM | text / photo / video |
+| type | ENUM | text / photo / video / voice |
 | text_content | TEXT | Текст сообщения или caption фото/видео (nullable) |
 | file_id | VARCHAR | Telegram file_id для медиа (nullable) |
 | order_index | INT | Порядок внутри записи |
@@ -289,51 +294,50 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 | `/start` | Онбординг: создание дневника или вход по инвайту |
 | `/history` | Просмотр записей с пагинацией |
 | `/invite` | Показать/перегенерировать инвайт-ссылку (только owner) |
-| `/settings` | Настройки дневника |
 
 ---
 
 ## План реализации MVP
 
 ### Этап 1 — Фундамент
-- [ ] Инициализация проекта (Node.js + grammY + Prisma)
-- [ ] Структура проекта (bot/, services/, db/, config/, utils/)
-- [ ] Настройка PostgreSQL, создание миграций
-- [ ] Подключение grammY conversations plugin
-- [ ] Сервисы: user.service, baby.service
-- [ ] Команда `/start` + онбординг с валидацией ввода
+- [x] Инициализация проекта (Node.js + grammY + Prisma)
+- [x] Структура проекта (bot/, services/, db/, config/, utils/)
+- [x] Настройка PostgreSQL, создание миграций
+- [x] Подключение grammY conversations plugin
+- [x] Сервисы: user.service, baby.service
+- [x] Команда `/start` + онбординг с валидацией ввода
 
 ### Этап 2 — Инвайт-система
-- [ ] Сервис: invite.service
-- [ ] Генерация инвайт-ссылки при создании дневника
-- [ ] Обработка перехода по инвайт-ссылке
-- [ ] Команда `/invite` для просмотра и перегенерации
+- [x] Сервис: invite.service
+- [x] Генерация инвайт-ссылки при создании дневника
+- [x] Обработка перехода по инвайт-ссылке
+- [x] Команда `/invite` для просмотра и перегенерации
 
 ### Этап 3 — Приём и хранение записей
-- [ ] Сервис: diary.service (createEntry, addItemsToEntry, getOpenEntry)
-- [ ] Middleware: mediaGroup буфер
-- [ ] Обработка текстовых сообщений → создание записи
-- [ ] Обработка фото и видео (включая caption) → сохранение file_id
-- [ ] Логика склейки в 10-минутном окне (только для одного автора)
-- [ ] Уведомление «добавлено к записи от ...»
-- [ ] Отказ на неподдерживаемый контент
+- [x] Сервис: diary.service (createEntry, addItemsToEntry, getOpenEntry)
+- [x] Middleware: mediaGroup буфер
+- [x] Обработка текстовых сообщений → создание записи
+- [x] Обработка фото и видео (включая caption) → сохранение file_id
+- [x] Логика склейки в 10-минутном окне (только для одного автора)
+- [x] Уведомление «добавлено к записи от ...»
+- [x] Отказ на неподдерживаемый контент
 
 ### Этап 4 — Управление записями
-- [ ] Сервис: diary.service (deleteEntry, updateEventDate)
-- [ ] Inline-кнопки после создания записи (дата, удаление)
-- [ ] Изменение даты события
-- [ ] Удаление с подтверждением
+- [x] Сервис: diary.service (deleteEntry, updateEventDate)
+- [x] Inline-кнопки после создания записи (дата, удаление)
+- [x] Изменение даты события
+- [x] Удаление с подтверждением
 
 ### Этап 5 — Просмотр и уведомления
-- [ ] Сервис: diary.service (getHistory), notification.service
-- [ ] Команда `/history` с пагинацией (текст + счётчик медиа)
-- [ ] Кнопка «Показать медиа» — отправка фото/видео
-- [ ] Уведомления другим участникам о новых записях
+- [x] Сервис: diary.service (getHistory), notification.service
+- [x] Команда `/history` с пагинацией (текст + счётчик медиа)
+- [x] Кнопка «Показать медиа» — отправка фото/видео
+- [x] Уведомления другим участникам о новых записях
 
 ### Этап 6 — Тестирование и деплой
-- [ ] Тестирование основных сценариев
-- [ ] Деплой на VPS
-- [ ] Настройка webhook / long polling
+- [x] Тестирование основных сценариев
+- [x] Деплой на VPS
+- [x] Настройка webhook / long polling
 
 ---
 
@@ -341,7 +345,7 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 
 | Версия | Фичи |
 |--------|-------|
-| v0.2 | Расшифровка голосовых (Whisper), авто-теги (Claude Haiku) |
+| ~~v0.2~~ | ~~Расшифровка голосовых (Whisper), авто-теги (Claude Haiku)~~ — Done |
 | v0.3 | Конспект за месяц (`/summary`), редактирование записей |
 | v0.4 | REST API + Telegram Mini App для красивого просмотра |
 | v0.5 | Фильтрация по тегам, дублирование медиа в S3 |
