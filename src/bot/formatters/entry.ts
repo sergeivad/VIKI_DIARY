@@ -77,7 +77,6 @@ export function formatMediaSummary(items: EntryItem[]): string | null {
 
 export function getHistoryTextContent(items: EntryItem[]): string {
   const textItems = items
-    .filter((item) => item.type === EntryItemType.text || item.type === EntryItemType.voice)
     .map((item) => normalizeText(item.textContent))
     .filter((item): item is string => Boolean(item));
 
