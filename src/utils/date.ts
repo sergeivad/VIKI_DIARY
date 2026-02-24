@@ -1,4 +1,5 @@
 const DATE_INPUT_PATTERN = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+const TZ = "Europe/Moscow";
 
 export function parseRuDateInput(input: string): Date | null {
   const trimmed = input.trim();
@@ -28,7 +29,7 @@ export function formatRuDate(date: Date): string {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "UTC"
+    timeZone: TZ
   }).format(date);
 }
 
@@ -37,7 +38,7 @@ export function formatRuDateLong(date: Date): string {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "UTC"
+    timeZone: TZ
   }).format(date);
 }
 
@@ -46,10 +47,12 @@ export function formatRuTime(date: Date): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "UTC"
+    timeZone: TZ
   }).format(date);
 }
 
 export function toUtcDateOnly(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const moscowDate = date.toLocaleDateString("en-CA", { timeZone: TZ });
+  const [y, m, d] = moscowDate.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }

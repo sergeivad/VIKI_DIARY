@@ -110,7 +110,7 @@ describe("handleDiaryMessage", () => {
 
     await handleDiaryMessage(ctx as never);
 
-    expect(ctx.reply).toHaveBeenCalledWith("✅ Добавлено к записи от 14:30");
+    expect(ctx.reply).toHaveBeenCalledWith("✅ Добавлено к записи от 17:30");
     expect(notifyOtherMembers).not.toHaveBeenCalled();
   });
 

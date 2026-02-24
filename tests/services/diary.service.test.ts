@@ -89,7 +89,7 @@ describe("DiaryService", () => {
     });
   });
 
-  it("getOpenEntry queries only open entries for UTC today", async () => {
+  it("getOpenEntry queries only open entries for Moscow today", async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const db = {
       diaryEntry: {
@@ -98,6 +98,7 @@ describe("DiaryService", () => {
     } as unknown as PrismaClient;
 
     const service = new DiaryService(db);
+    // 23:59 UTC = 02:59 Moscow next day
     const now = new Date("2026-02-22T23:59:00.000Z");
 
     await service.getOpenEntry("baby-1", "user-1", now);
@@ -106,7 +107,7 @@ describe("DiaryService", () => {
       where: {
         babyId: "baby-1",
         authorId: "user-1",
-        eventDate: new Date("2026-02-22T00:00:00.000Z"),
+        eventDate: new Date("2026-02-23T00:00:00.000Z"),
         mergeWindowUntil: {
           gt: now
         }

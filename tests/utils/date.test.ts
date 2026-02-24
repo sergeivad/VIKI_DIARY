@@ -27,13 +27,17 @@ describe("date utils", () => {
     expect(formatRuDateLong(new Date("2026-02-22T00:00:00.000Z"))).toBe("22 февраля 2026 г.");
   });
 
-  it("formats time in UTC", () => {
-    expect(formatRuTime(new Date("2026-02-22T14:30:00.000Z"))).toBe("14:30");
+  it("formats time in Moscow timezone", () => {
+    expect(formatRuTime(new Date("2026-02-22T14:30:00.000Z"))).toBe("17:30");
   });
 
-  it("returns UTC date-only value", () => {
+  it("returns date-only value based on Moscow timezone", () => {
     expect(toUtcDateOnly(new Date("2026-02-22T14:30:00.000Z")).toISOString()).toBe(
       "2026-02-22T00:00:00.000Z"
+    );
+    // 23:59 UTC = 02:59 next day in Moscow
+    expect(toUtcDateOnly(new Date("2026-02-22T23:59:00.000Z")).toISOString()).toBe(
+      "2026-02-23T00:00:00.000Z"
     );
   });
 });
