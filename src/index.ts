@@ -55,6 +55,7 @@ app.get("/health", (_req, res) => {
 
 app.use(
   env.WEBHOOK_PATH,
+  express.json(),
   webhookCallback(bot, "express", "return", 15_000, env.WEBHOOK_SECRET)
 );
 
