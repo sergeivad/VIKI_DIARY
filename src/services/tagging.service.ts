@@ -58,7 +58,9 @@ export class TaggingService {
         return [];
       }
 
-      return parsed.filter((item): item is string => typeof item === "string");
+      const tags = parsed.filter((item): item is string => typeof item === "string");
+      this.log.debug({ tags, input: trimmed.slice(0, 100) }, "Tags generated");
+      return tags;
     } catch (error) {
       this.log.warn({ err: error }, "Tag generation failed, returning empty tags");
       return [];
