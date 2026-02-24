@@ -17,6 +17,8 @@
 - `BOT_USERNAME`
 - `WEBHOOK_SECRET`
 - `WEBHOOK_URL`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 - `POSTGRES_PASSWORD`
 
 `DATABASE_URL` is auto-built in `docker-compose.dokploy.yml` from Postgres env values. Set it explicitly only if you use external PostgreSQL.

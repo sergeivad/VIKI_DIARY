@@ -1,6 +1,6 @@
-# Baby Diary Bot (MVP v0.1, Stages 1-6)
+# Baby Diary Bot
 
-Foundation for a multi-tenant Telegram baby diary bot.
+Multi-tenant Telegram baby diary bot.
 
 Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `PostgreSQL`.
 
@@ -21,10 +21,13 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - `/invite` command for owner
   - `/invite regenerate` to rotate invite token
 - Diary ingest (Stage 3):
-  - text/photo/video message handling
+  - text/photo/video/voice message handling
+  - voice messages: transcription via OpenAI Whisper (max 5 min)
   - media-group buffering with single batch save
   - 10-minute merge window for the same author (UTC today)
-  - unsupported content fallback message
+  - unsupported content fallback message (stickers, documents, etc.)
+- Auto-tags (Stage 7):
+  - automatic tagging of diary entries via Claude Haiku (fire-and-forget)
 - Entry management (Stage 4):
   - inline actions after new entry: change date / delete
   - quick event date change: yesterday / day before yesterday
@@ -47,6 +50,8 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - `invite.service.ts` (`acceptInvite`, `regenerateInvite`, `generateInvite`)
   - `diary.service.ts` (`createEntry`, `addItemsToEntry`, `getOpenEntry`, `createOrAppend`, `getHistory`)
   - `notification.service.ts` (`notifyOtherMembers`)
+  - `transcription.service.ts` (voice message transcription via Whisper)
+  - `tagging.service.ts` (auto-tagging via Claude Haiku)
 - Webhook-only production mode with Express.
 
 ## Quick Start
@@ -131,6 +136,8 @@ Required app env:
 - `BOT_USERNAME`
 - `WEBHOOK_SECRET`
 - `WEBHOOK_URL` (must include webhook path, e.g. `https://bot.example.com/telegram/webhook`)
+- `OPENAI_API_KEY` (for voice transcription via Whisper)
+- `ANTHROPIC_API_KEY` (for auto-tagging via Claude Haiku)
 
 Optional app env:
 
