@@ -215,10 +215,19 @@ export async function handleEntryCallbacks(ctx: BotContext): Promise<void> {
       return;
     }
 
+    const isNotModified =
+      error instanceof Error &&
+      error.message.includes("message is not modified");
+
+    if (isNotModified) {
+      await ctx.answerCallbackQuery().catch(() => {});
+      return;
+    }
+
     console.error("Failed to process entry callback", { error });
     await ctx.answerCallbackQuery({
       text: "Не удалось выполнить действие. Попробуйте ещё раз.",
       show_alert: true
-    });
+    }).catch(() => {});
   }
 }

@@ -52,7 +52,8 @@ export class TaggingService {
         return [];
       }
 
-      const parsed: unknown = JSON.parse(textBlock.text);
+      const raw = textBlock.text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+      const parsed: unknown = JSON.parse(raw);
       if (!Array.isArray(parsed)) {
         return [];
       }
