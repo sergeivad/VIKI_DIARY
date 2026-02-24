@@ -25,12 +25,15 @@ export function buildNewEntryNotificationText(params: {
     lines.push(`«${preview}»`);
   }
 
-  const { photoCount, videoCount } = getMediaCounts(params.items);
+  const { photoCount, videoCount, voiceCount } = getMediaCounts(params.items);
   if (photoCount > 0) {
     lines.push(`🖼 ${photoCount} фото`);
   }
   if (videoCount > 0) {
     lines.push(`🎥 ${videoCount} видео`);
+  }
+  if (voiceCount > 0) {
+    lines.push(`🎤 ${voiceCount} голос.`);
   }
 
   return lines.join("\n");

@@ -1,3 +1,4 @@
+import type { EntryItem } from "@prisma/client";
 import type { NextFunction } from "grammy";
 
 import type { DiaryItemInput } from "../../services/diary.service.js";
@@ -9,7 +10,29 @@ import { formatRuDate, formatRuTime } from "../../utils/date.js";
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
 const NO_DIARY_MESSAGE =
   "Сначала создайте дневник через /start или присоединитесь по инвайт-ссылке.";
-const UNSUPPORTED_CONTENT_MESSAGE = "Пока я умею сохранять только текст, фото и видео 😊";
+const UNSUPPORTED_CONTENT_MESSAGE = "Пока я умею сохранять только текст, фото, видео и голосовые сообщения 😊";
+
+function generateAndApplyTags(ctx: BotContext, entry: { id: string; items: EntryItem[] }): void {
+  const text = entry.items
+    .map((item) => item.textContent?.trim())
+    .filter((t): t is string => Boolean(t))
+    .join("\n\n");
+
+  if (!text) {
+    return;
+  }
+
+  void (async () => {
+    try {
+      const tags = await ctx.services.taggingService.generateTags(text);
+      if (tags.length > 0) {
+        await ctx.services.diaryService.updateTags(entry.id, tags);
+      }
+    } catch {
+      // Fire-and-forget
+    }
+  })();
+}
 
 type BufferedMediaGroup = {
   ctx: BotContext;
@@ -107,10 +130,12 @@ export function createMediaGroupMiddleware(
           authorFirstName: user.firstName,
           items: result.entry.items
         });
+        generateAndApplyTags(buffered.ctx, result.entry);
         return;
       }
 
       await buffered.ctx.reply(formatIngestAck(result));
+      generateAndApplyTags(buffered.ctx, result.entry);
     } catch (error) {
       console.error("Failed to process media group", { error, groupKey });
       await buffered.ctx.reply("Не удалось сохранить медиагруппу. Попробуйте ещё раз.");

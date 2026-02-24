@@ -296,6 +296,86 @@ describe("DiaryService", () => {
     expect(result.mode).toBe("appended");
   });
 
+  it("createEntry normalizes voice item with fileId and textContent", async () => {
+    const now = new Date("2026-02-22T12:00:00.000Z");
+    const create = vi.fn().mockResolvedValue({
+      id: "entry-1",
+      babyId: "baby-1",
+      authorId: "user-1",
+      eventDate: new Date("2026-02-22T00:00:00.000Z"),
+      mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+      createdAt: now,
+      updatedAt: now,
+      items: [
+        {
+          id: "item-1",
+          entryId: "entry-1",
+          type: EntryItemType.voice,
+          textContent: "transcription text",
+          fileId: "voice-file-1",
+          orderIndex: 0,
+          createdAt: now
+        }
+      ]
+    });
+
+    const db = {
+      diaryEntry: { create }
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await service.createEntry({
+      babyId: "baby-1",
+      authorId: "user-1",
+      items: [{ type: "voice", fileId: "voice-file-1", textContent: "transcription text" }],
+      now
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        babyId: "baby-1",
+        authorId: "user-1",
+        eventDate: new Date("2026-02-22T00:00:00.000Z"),
+        mergeWindowUntil: new Date("2026-02-22T12:10:00.000Z"),
+        items: {
+          create: [
+            {
+              type: EntryItemType.voice,
+              textContent: "transcription text",
+              fileId: "voice-file-1",
+              orderIndex: 0
+            }
+          ]
+        }
+      },
+      include: {
+        items: {
+          orderBy: {
+            orderIndex: "asc"
+          }
+        }
+      }
+    });
+  });
+
+  it("updateTags updates entry tags", async () => {
+    const update = vi.fn().mockResolvedValue({ id: "entry-1", tags: ["еда", "сон"] });
+
+    const db = {
+      diaryEntry: { update }
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await service.updateTags("entry-1", ["еда", "сон"]);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { tags: ["еда", "сон"] }
+    });
+  });
+
   it("throws invalid_items when item list is empty", async () => {
     const db = {
       diaryEntry: {

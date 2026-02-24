@@ -1,5 +1,7 @@
+import Anthropic from "@anthropic-ai/sdk";
 import express from "express";
 import { webhookCallback } from "grammy";
+import OpenAI from "openai";
 
 import { createBot } from "./bot/bot.js";
 import { env } from "./config/env.js";
@@ -9,14 +11,21 @@ import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { NotificationService } from "./services/notification.service.js";
+import { TaggingService } from "./services/tagging.service.js";
+import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
 
 const app = express();
+
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
 const userService = new UserService(prisma);
 const babyService = new BabyService(prisma);
 const inviteService = new InviteService(prisma, env.BOT_USERNAME);
 const diaryService = new DiaryService(prisma);
+const transcriptionService = new TranscriptionService(openai);
+const taggingService = new TaggingService(anthropic, logger);
 
 let bot!: ReturnType<typeof createBot>;
 
@@ -25,6 +34,8 @@ const services = {
   babyService,
   inviteService,
   diaryService,
+  transcriptionService,
+  taggingService,
   notificationService: new NotificationService(
     babyService,
     async (telegramId, text) => {

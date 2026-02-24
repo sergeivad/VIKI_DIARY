@@ -53,6 +53,9 @@ function buildServices(hasDiary = true) {
     },
     notificationService: {
       notifyOtherMembers
+    },
+    taggingService: {
+      generateTags: vi.fn().mockResolvedValue([])
     }
   };
 }
@@ -290,7 +293,7 @@ describe("media group middleware", () => {
     await middleware(ctx as never, vi.fn());
     await vi.advanceTimersByTimeAsync(120);
 
-    expect(ctx.reply).toHaveBeenCalledWith("Пока я умею сохранять только текст, фото и видео 😊");
+    expect(ctx.reply).toHaveBeenCalledWith("Пока я умею сохранять только текст, фото, видео и голосовые сообщения 😊");
     expect(services.diaryService.createOrAppend).not.toHaveBeenCalled();
   });
 });

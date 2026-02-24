@@ -15,6 +15,7 @@ enum EntryItemType {
   text
   photo
   video
+  voice
 }
 
 model User {
@@ -63,6 +64,8 @@ model DiaryEntry {
   mergeWindowUntil DateTime    @map("merge_window_until")
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  tags             String[]    @default([])
 
   baby             Baby        @relation(fields: [babyId], references: [id], onDelete: Cascade)
   author           User        @relation("DiaryEntryAuthor", fields: [authorId], references: [id], onDelete: Cascade)

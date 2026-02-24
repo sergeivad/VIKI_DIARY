@@ -7,7 +7,7 @@ import { DiaryDomainError, DiaryErrorCode } from "./diary.errors.js";
 const MERGE_WINDOW_MINUTES = 10;
 
 export type DiaryItemInput = {
-  type: "text" | "photo" | "video";
+  type: "text" | "photo" | "video" | "voice";
   textContent?: string | null;
   fileId?: string | null;
 };
@@ -133,8 +133,14 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
       );
     }
 
+    const typeMap = {
+      photo: EntryItemType.photo,
+      video: EntryItemType.video,
+      voice: EntryItemType.voice
+    } as const;
+
     return {
-      type: item.type === "photo" ? EntryItemType.photo : EntryItemType.video,
+      type: typeMap[item.type as keyof typeof typeMap],
       textContent: normalizeText(item.textContent),
       fileId
     };
@@ -510,6 +516,13 @@ export class DiaryService {
         limit,
         totalPages
       };
+    });
+  }
+
+  async updateTags(entryId: string, tags: string[]): Promise<void> {
+    await this.db.diaryEntry.update({
+      where: { id: entryId },
+      data: { tags }
     });
   }
 
