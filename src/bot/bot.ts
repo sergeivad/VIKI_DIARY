@@ -18,12 +18,14 @@ import type { BotContext, Services } from "../types/bot.js";
 export function createBot(services: Services): Bot<BotContext> {
   const bot = new Bot<BotContext>(env.BOT_TOKEN);
 
-  bot.use(async (ctx, next) => {
+  const servicesPlugin = async (ctx: BotContext, next: () => Promise<void>): Promise<void> => {
     ctx.services = services;
     await next();
-  });
+  };
 
-  bot.use(conversations());
+  bot.use(servicesPlugin);
+
+  bot.use(conversations({ plugins: [servicesPlugin] }));
   bot.use(createConversation(onboardingConversation));
   bot.use(createConversation(dateInputConversation, "dateInputConversation"));
   bot.use(createMediaGroupMiddleware());
