@@ -62,6 +62,12 @@ app.use(
 const server = app.listen(env.PORT, async () => {
   logger.info({ port: env.PORT, webhookPath: env.WEBHOOK_PATH }, "Server started");
   try {
+    await prisma.$connect();
+    logger.info("Database connected");
+  } catch (error) {
+    logger.error({ err: error }, "Failed to connect to database");
+  }
+  try {
     await bot.api.setWebhook(env.WEBHOOK_URL, {
       secret_token: env.WEBHOOK_SECRET,
       drop_pending_updates: false
