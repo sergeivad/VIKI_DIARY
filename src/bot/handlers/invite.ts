@@ -1,4 +1,4 @@
-import { BabyMemberRole } from "@prisma/client";
+import { BabyMemberRole } from "../../db/client.js";
 
 import type { BotContext } from "../../types/bot.js";
 

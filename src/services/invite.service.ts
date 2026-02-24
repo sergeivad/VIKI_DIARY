@@ -1,8 +1,5 @@
-import {
-  BabyMemberRole,
-  type Baby,
-  type PrismaClient
-} from "@prisma/client";
+import type { Baby, BabyMemberRole as BabyMemberRoleEnum, PrismaClient } from "@prisma/client";
+import { BabyMemberRole } from "../db/client.js";
 
 import { InviteDomainError, InviteErrorCode } from "./invite.errors.js";
 import { generateInviteToken } from "../utils/token.js";
@@ -11,7 +8,7 @@ import { buildInviteLink } from "../utils/invite.js";
 export type UserInviteInfo = {
   babyId: string;
   babyName: string;
-  role: BabyMemberRole;
+  role: BabyMemberRoleEnum;
   inviteToken: string;
 };
 

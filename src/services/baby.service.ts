@@ -1,4 +1,5 @@
-import { BabyMemberRole, type Baby, type PrismaClient, type User } from "@prisma/client";
+import type { Baby, PrismaClient, User } from "@prisma/client";
+import { BabyMemberRole } from "../db/client.js";
 
 import { generateInviteToken } from "../utils/token.js";
 

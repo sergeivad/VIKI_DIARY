@@ -1,10 +1,5 @@
-import {
-  EntryItemType,
-  Prisma,
-  type DiaryEntry,
-  type EntryItem,
-  type PrismaClient
-} from "@prisma/client";
+import type { DiaryEntry, EntryItem, EntryItemType as EntryItemTypeEnum, Prisma, PrismaClient } from "@prisma/client";
+import { EntryItemType, Prisma as PrismaRuntime } from "../db/client.js";
 
 import { toUtcDateOnly } from "../utils/date.js";
 import { DiaryDomainError, DiaryErrorCode } from "./diary.errors.js";
@@ -85,7 +80,7 @@ type GetHistoryResult = {
 };
 
 type NormalizedDiaryItem = {
-  type: EntryItemType;
+  type: EntryItemTypeEnum;
   textContent: string | null;
   fileId: string | null;
 };
@@ -159,7 +154,7 @@ export class DiaryService {
 
   private async lockAuthorRow(tx: Prisma.TransactionClient, authorId: string): Promise<void> {
     await tx.$queryRaw(
-      Prisma.sql`SELECT 1 FROM "users" WHERE "id" = ${authorId}::uuid FOR UPDATE`
+      PrismaRuntime.sql`SELECT 1 FROM "users" WHERE "id" = ${authorId}::uuid FOR UPDATE`
     );
   }
 

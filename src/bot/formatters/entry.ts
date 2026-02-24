@@ -1,4 +1,5 @@
-import { EntryItemType, type EntryItem } from "@prisma/client";
+import type { EntryItem } from "@prisma/client";
+import { EntryItemType } from "../../db/client.js";
 
 import { formatRuDateLong } from "../../utils/date.js";
 

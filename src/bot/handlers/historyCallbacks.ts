@@ -1,4 +1,4 @@
-import { EntryItemType } from "@prisma/client";
+import { EntryItemType } from "../../db/client.js";
 
 import type { BotContext } from "../../types/bot.js";
 import type { HistoryEntryDTO } from "../../services/diary.service.js";
