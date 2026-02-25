@@ -1,29 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import type { Logger } from "pino";
 
 import { TaggingService } from "../../src/services/tagging.service.js";
 
-const mockLogger = { warn: vi.fn() } as unknown as Logger;
+const mockLogger = { debug: vi.fn(), warn: vi.fn() } as unknown as Logger;
 
-function createMockAnthropic(
-  response: { content: Array<{ type: string; text: string }> } | Error
-): Anthropic {
+function createMockOpenAI(
+  response: { choices: Array<{ message: { content: string | null } }> } | Error
+): OpenAI {
   const create = response instanceof Error
     ? vi.fn().mockRejectedValue(response)
     : vi.fn().mockResolvedValue(response);
 
   return {
-    messages: { create }
-  } as unknown as Anthropic;
+    chat: {
+      completions: { create }
+    }
+  } as unknown as OpenAI;
+}
+
+function chatResponse(content: string | null) {
+  return { choices: [{ message: { content } }] };
 }
 
 describe("TaggingService", () => {
-  it("returns parsed tags from Claude response", async () => {
-    const anthropic = createMockAnthropic({
-      content: [{ type: "text", text: '["еда", "первый-раз"]' }]
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+  it("returns parsed tags from OpenAI response", async () => {
+    const openai = createMockOpenAI(chatResponse('["еда", "первый-раз"]'));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("Вика попробовала кашу");
 
@@ -31,10 +35,8 @@ describe("TaggingService", () => {
   });
 
   it("returns empty array for empty input", async () => {
-    const anthropic = createMockAnthropic({
-      content: [{ type: "text", text: "[]" }]
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+    const openai = createMockOpenAI(chatResponse("[]"));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("   ");
 
@@ -42,8 +44,8 @@ describe("TaggingService", () => {
   });
 
   it("returns empty array on API error", async () => {
-    const anthropic = createMockAnthropic(new Error("API down"));
-    const service = new TaggingService(anthropic, mockLogger);
+    const openai = createMockOpenAI(new Error("API down"));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("some text");
 
@@ -51,10 +53,8 @@ describe("TaggingService", () => {
   });
 
   it("returns empty array on invalid JSON response", async () => {
-    const anthropic = createMockAnthropic({
-      content: [{ type: "text", text: "not json" }]
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+    const openai = createMockOpenAI(chatResponse("not json"));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("some text");
 
@@ -62,10 +62,8 @@ describe("TaggingService", () => {
   });
 
   it("returns empty array when response is not an array", async () => {
-    const anthropic = createMockAnthropic({
-      content: [{ type: "text", text: '{"tags": ["еда"]}' }]
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+    const openai = createMockOpenAI(chatResponse('{"tags": ["еда"]}'));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("some text");
 
@@ -73,21 +71,17 @@ describe("TaggingService", () => {
   });
 
   it("filters out non-string items from array", async () => {
-    const anthropic = createMockAnthropic({
-      content: [{ type: "text", text: '["еда", 123, null, "сон"]' }]
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+    const openai = createMockOpenAI(chatResponse('["еда", 123, null, "сон"]'));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("some text");
 
     expect(tags).toEqual(["еда", "сон"]);
   });
 
-  it("returns empty array when no text block in response", async () => {
-    const anthropic = createMockAnthropic({
-      content: []
-    });
-    const service = new TaggingService(anthropic, mockLogger);
+  it("returns empty array when content is null", async () => {
+    const openai = createMockOpenAI(chatResponse(null));
+    const service = new TaggingService(openai, mockLogger);
 
     const tags = await service.generateTags("some text");
 

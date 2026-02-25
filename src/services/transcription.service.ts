@@ -5,6 +5,14 @@ import { TranscriptionError, TranscriptionErrorCode } from "./transcription.erro
 
 const MAX_DURATION_SECONDS = 300;
 
+const POST_PROCESS_PROMPT = `Ты получаешь сырой текст транскрипции голосового сообщения на русском языке.
+Твоя задача — отформатировать его:
+- Расставь пунктуацию и заглавные буквы
+- Разбей на предложения
+- Исправь очевидные ошибки распознавания
+- Не меняй смысл и содержание
+- Верни только отформатированный текст, без пояснений`;
+
 export class TranscriptionService {
   constructor(private readonly openai: OpenAI) {}
 
@@ -32,7 +40,7 @@ export class TranscriptionService {
         );
       }
 
-      return text;
+      return this.postProcess(text);
     } catch (error) {
       if (error instanceof TranscriptionError) {
         throw error;
@@ -42,6 +50,24 @@ export class TranscriptionService {
         TranscriptionErrorCode.transcriptionFailed,
         `Transcription failed: ${error instanceof Error ? error.message : "unknown error"}`
       );
+    }
+  }
+
+  private async postProcess(rawText: string): Promise<string> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: POST_PROCESS_PROMPT },
+          { role: "user", content: rawText }
+        ]
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      return content || rawText;
+    } catch {
+      return rawText;
     }
   }
 }

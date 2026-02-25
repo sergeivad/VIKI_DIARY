@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import type { Logger } from "pino";
 
 const FIXED_TAGS = [
@@ -29,7 +29,7 @@ ${FIXED_TAGS.join(", ")}
 
 export class TaggingService {
   constructor(
-    private readonly anthropic: Anthropic,
+    private readonly openai: OpenAI,
     private readonly log: Logger
   ) {}
 
@@ -40,20 +40,21 @@ export class TaggingService {
         return [];
       }
 
-      const response = await this.anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
         max_tokens: 256,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: trimmed }]
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: trimmed }
+        ]
       });
 
-      const textBlock = response.content.find((block) => block.type === "text");
-      if (!textBlock || textBlock.type !== "text") {
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
         return [];
       }
 
-      const raw = textBlock.text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(content.trim());
       if (!Array.isArray(parsed)) {
         return [];
       }
