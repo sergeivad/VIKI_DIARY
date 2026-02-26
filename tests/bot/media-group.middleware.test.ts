@@ -146,6 +146,7 @@ describe("media group middleware", () => {
     const replyArgs = (ctx1.reply as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(replyArgs[0]).toBe("✅ Записано на 22.02.2026");
     expect(replyArgs[1].reply_markup.inline_keyboard).toEqual([
+      [{ text: "✏️ Редактировать", callback_data: "entry:edit:entry-1" }],
       [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
       [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
     ]);

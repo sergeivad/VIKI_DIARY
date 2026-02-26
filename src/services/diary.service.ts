@@ -64,6 +64,19 @@ type GetEntryByIdInput = {
   actorId: string;
 };
 
+type GetEntriesForDateRangeInput = {
+  babyId: string;
+  actorId: string;
+  dateFrom: Date;
+  dateTo: Date;
+};
+
+type UpdateEntryTextInput = {
+  entryId: string;
+  actorId: string;
+  newText: string;
+};
+
 type GetHistoryInput = {
   babyId: string;
   actorId: string;
@@ -523,6 +536,108 @@ export class DiaryService {
     await this.db.diaryEntry.update({
       where: { id: entryId },
       data: { tags }
+    });
+  }
+
+  async getEntriesForDateRange(input: GetEntriesForDateRangeInput): Promise<HistoryEntryDTO[]> {
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToBabyTx(tx, input.babyId, input.actorId);
+
+      return tx.diaryEntry.findMany({
+        where: {
+          babyId: input.babyId,
+          eventDate: {
+            gte: input.dateFrom,
+            lte: input.dateTo
+          }
+        },
+        orderBy: {
+          eventDate: "asc"
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              firstName: true,
+              username: true
+            }
+          },
+          items: {
+            orderBy: {
+              orderIndex: "asc"
+            }
+          }
+        }
+      });
+    });
+  }
+
+  async updateEntryText(input: UpdateEntryTextInput): Promise<DiaryEntryDTO> {
+    const trimmed = input.newText.trim();
+    if (trimmed.length === 0) {
+      throw new DiaryDomainError(DiaryErrorCode.invalidItems, "Text must not be empty");
+    }
+
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+
+      const textItems = await tx.entryItem.findMany({
+        where: {
+          entryId: input.entryId,
+          type: EntryItemType.text
+        },
+        orderBy: {
+          orderIndex: "asc"
+        }
+      });
+
+      if (textItems.length > 0) {
+        // Update first text item, delete the rest (consolidate)
+        await tx.entryItem.update({
+          where: { id: textItems[0].id },
+          data: { textContent: trimmed }
+        });
+
+        if (textItems.length > 1) {
+          await tx.entryItem.deleteMany({
+            where: {
+              id: { in: textItems.slice(1).map((i) => i.id) }
+            }
+          });
+        }
+      } else {
+        // No text items — shift existing items and insert at orderIndex 0
+        await tx.$queryRaw(
+          PrismaRuntime.sql`UPDATE "entry_items" SET "order_index" = "order_index" + 1 WHERE "entry_id" = ${input.entryId}::uuid`
+        );
+
+        await tx.entryItem.create({
+          data: {
+            entryId: input.entryId,
+            type: EntryItemType.text,
+            textContent: trimmed,
+            fileId: null,
+            orderIndex: 0
+          }
+        });
+      }
+
+      const updated = await tx.diaryEntry.findUnique({
+        where: { id: input.entryId },
+        include: {
+          items: {
+            orderBy: {
+              orderIndex: "asc"
+            }
+          }
+        }
+      });
+
+      if (!updated) {
+        throw new DiaryDomainError(DiaryErrorCode.entryNotFound, "Entry not found");
+      }
+
+      return updated;
     });
   }
 

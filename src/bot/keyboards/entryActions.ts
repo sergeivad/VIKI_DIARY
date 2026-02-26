@@ -32,12 +32,18 @@ export function buildDeleteConfirmCallbackData(entryId: string): string {
   return `${ENTRY_CALLBACK_PREFIX}:delete:confirm:${entryId}`;
 }
 
+export function buildEditCallbackData(entryId: string): string {
+  return `${ENTRY_CALLBACK_PREFIX}:edit:${entryId}`;
+}
+
 export function buildDeleteCancelCallbackData(entryId: string): string {
   return `${ENTRY_CALLBACK_PREFIX}:delete:cancel:${entryId}`;
 }
 
 export function buildEntryActionsKeyboard(entryId: string): InlineKeyboard {
   return new InlineKeyboard()
+    .text("✏️ Редактировать", buildEditCallbackData(entryId))
+    .row()
     .text("📅 Изменить дату", buildDateMenuCallbackData(entryId))
     .row()
     .text("🗑 Удалить", buildDeleteMenuCallbackData(entryId));

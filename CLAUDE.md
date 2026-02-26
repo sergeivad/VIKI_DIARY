@@ -28,12 +28,13 @@ Telegram baby diary bot — Grammy + Express 5 + Prisma 7 + PostgreSQL.
 
 **Key layers**:
 - `src/bot/bot.ts` — Bot factory: middleware registration order (services → conversations → media groups → commands → callbacks → message handler)
-- `src/bot/conversations/` — Multi-turn flows using `@grammyjs/conversations` (onboarding, date input)
+- `src/bot/conversations/` — Multi-turn flows using `@grammyjs/conversations` (onboarding, date input, edit entry)
 - `src/bot/handlers/` — Command and callback handlers
 - `src/bot/middleware/mediaGroup.ts` — Buffers media group messages (600ms), extracts best-quality photos/videos, creates diary entries
 - `src/services/` — Business logic with Prisma transactions and row-level locking for concurrency
 - `src/services/transcription.service.ts` — Voice message transcription via OpenAI Whisper API (max 5 min)
-- `src/services/tagging.service.ts` — Auto-tagging diary entries via Claude Haiku (fire-and-forget)
+- `src/services/tagging.service.ts` — Auto-tagging diary entries via GPT-4o-mini (fire-and-forget)
+- `src/services/summary.service.ts` — Monthly diary summary generation via GPT-4o
 - `src/config/env.ts` — Zod-validated environment variables
 - `src/types/bot.ts` — BotContext, Services, BotConversation type definitions
 
@@ -60,7 +61,7 @@ The bridge `src/db/client.ts` re-exports `PrismaClient`, `EntryItemType`, `BabyM
 
 - ESLint enforces `consistent-type-imports` — always use `import type` for type-only imports
 - All `.ts` imports in source code must use `.js` extension (NodeNext module resolution)
-- Services use constructor DI with PrismaClient; domain errors via custom error classes (`DiaryDomainError`, `InviteDomainError`, `TranscriptionError`)
+- Services use constructor DI with PrismaClient; domain errors via custom error classes (`DiaryDomainError`, `InviteDomainError`, `TranscriptionError`, `SummaryDomainError`)
 - Tests mock Prisma client methods with `vi.fn()` — no real DB in tests
 
 ## Deployment

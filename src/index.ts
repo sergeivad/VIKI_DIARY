@@ -10,6 +10,7 @@ import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { NotificationService } from "./services/notification.service.js";
+import { SummaryService } from "./services/summary.service.js";
 import { TaggingService } from "./services/tagging.service.js";
 import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
@@ -24,6 +25,7 @@ const inviteService = new InviteService(prisma, env.BOT_USERNAME);
 const diaryService = new DiaryService(prisma);
 const transcriptionService = new TranscriptionService(openai);
 const taggingService = new TaggingService(openai, logger);
+const summaryService = new SummaryService(openai, logger);
 
 let bot!: ReturnType<typeof createBot>;
 
@@ -34,6 +36,7 @@ const services = {
   diaryService,
   transcriptionService,
   taggingService,
+  summaryService,
   notificationService: new NotificationService(
     babyService,
     async (telegramId, text) => {
