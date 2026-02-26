@@ -52,21 +52,22 @@ export async function editEntryConversation(
       newText
     });
 
-    const confirmationText = "✅ Текст записи обновлён.";
+    const preview = newText.length > 100 ? newText.slice(0, 100).trimEnd() + "…" : newText;
+    const confirmationText = `✅ Текст записи обновлён:\n\n«${preview}»`;
 
+    await ctx.reply(confirmationText, {
+      reply_markup: buildEntryActionsKeyboard(payload.entryId)
+    });
+
+    // Update the original message to remove stale action buttons
     try {
       await ctx.api.editMessageText(
         payload.sourceChatId,
         payload.sourceMessageId,
-        confirmationText,
-        {
-          reply_markup: buildEntryActionsKeyboard(payload.entryId)
-        }
+        "✏️ Текст отредактирован."
       );
     } catch {
-      await ctx.reply(confirmationText, {
-        reply_markup: buildEntryActionsKeyboard(payload.entryId)
-      });
+      // Original message might be too old or already modified
     }
 
     // Fire-and-forget: regenerate tags after edit
