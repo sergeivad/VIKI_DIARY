@@ -1,11 +1,17 @@
-function App() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-bold text-[hsl(var(--primary))]">
-        Viki Diary Mini App
-      </h1>
-    </div>
-  );
-}
+import { useEffect } from "react";
+import { AppProvider } from "./components/app-context";
+import { useTelegram } from "./hooks/useTelegram";
+import { api } from "./api/client";
+import "./index.css";
 
-export default App;
+export default function App() {
+  const { initData } = useTelegram();
+
+  useEffect(() => {
+    if (initData) {
+      api.setInitData(initData);
+    }
+  }, [initData]);
+
+  return <AppProvider />;
+}
