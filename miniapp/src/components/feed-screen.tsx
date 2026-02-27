@@ -11,6 +11,8 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
   const voiceItem = entry.items.find((m) => m.type === "voice");
   const hasVoice = !!voiceItem;
   const textItem = entry.items.find((m) => m.type === "text");
+  // Display text: prefer explicit text entry, fallback to voice transcription
+  const displayText = textItem?.textContent || voiceItem?.textContent || null;
   const showCount = Math.min(photos.length, 4);
   const extraCount = photos.length - 4;
 
@@ -28,10 +30,10 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
         <span className="text-xs text-muted-foreground ml-auto">{formatTime(entry.createdAt)}</span>
       </div>
 
-      {/* Text */}
-      {textItem?.textContent && (
+      {/* Text (or voice transcription) */}
+      {displayText && (
         <p className="text-sm text-foreground leading-relaxed line-clamp-3 mb-3">
-          {textItem.textContent}
+          {displayText}
         </p>
       )}
 
@@ -70,26 +72,11 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
         </div>
       )}
 
-      {/* Voice message indicator */}
+      {/* Voice message badge */}
       {hasVoice && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
-            <Mic className="h-4 w-4 text-primary" />
-            <div className="flex gap-[2px] items-end">
-              {Array.from({ length: 24 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-[3px] rounded-full bg-primary/40"
-                  style={{ height: `${6 + Math.sin(i * 0.6) * 8 + Math.random() * 6}px` }}
-                />
-              ))}
-            </div>
-          </div>
-          {voiceItem?.textContent && !textItem?.textContent && (
-            <p className="text-sm text-foreground/70 leading-relaxed line-clamp-2 mt-1.5 px-1 italic">
-              {voiceItem.textContent}
-            </p>
-          )}
+        <div className="flex items-center gap-1.5 mb-3">
+          <Mic className="h-3.5 w-3.5 text-primary/60" />
+          <span className="text-xs text-muted-foreground">Голосовое сообщение</span>
         </div>
       )}
 
