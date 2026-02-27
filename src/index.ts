@@ -82,7 +82,7 @@ app.use("/api/v1", express.json(), apiRouter);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const miniappDist = path.join(__dirname, "..", "miniapp", "dist");
 app.use("/app", express.static(miniappDist));
-app.get("/app/*", (_req, res) => {
+app.get("/app/{*splat}", (_req, res) => {
   res.sendFile(path.join(miniappDist, "index.html"));
 });
 
