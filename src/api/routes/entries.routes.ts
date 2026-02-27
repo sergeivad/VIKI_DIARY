@@ -41,7 +41,7 @@ export function createEntriesRouter(
   // GET /:id — single entry
   router.get("/:id", async (req, res: Response, next: NextFunction) => {
     try {
-      const { actor } = req as AuthedRequest;
+      const { actor } = req as unknown as AuthedRequest;
       const entry = await diaryService.getEntryById({
         entryId: req.params.id,
         actorId: actor.userId,
@@ -90,7 +90,7 @@ export function createEntriesRouter(
   // PATCH /:id/text — update entry text
   router.patch("/:id/text", async (req, res: Response, next: NextFunction) => {
     try {
-      const { actor } = req as AuthedRequest;
+      const { actor } = req as unknown as AuthedRequest;
       const { text } = req.body as { text?: string };
 
       if (!text) {
@@ -119,7 +119,7 @@ export function createEntriesRouter(
   // PATCH /:id/date — update event date
   router.patch("/:id/date", async (req, res: Response, next: NextFunction) => {
     try {
-      const { actor } = req as AuthedRequest;
+      const { actor } = req as unknown as AuthedRequest;
       const { eventDate } = req.body as { eventDate?: string };
 
       if (!eventDate) {
@@ -142,7 +142,7 @@ export function createEntriesRouter(
   // DELETE /:id — delete entry
   router.delete("/:id", async (req, res: Response, next: NextFunction) => {
     try {
-      const { actor } = req as AuthedRequest;
+      const { actor } = req as unknown as AuthedRequest;
       await diaryService.deleteEntry({
         entryId: req.params.id,
         actorId: actor.userId,
