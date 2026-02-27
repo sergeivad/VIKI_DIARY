@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: 30 50% 98%;
+  --foreground: 20 20% 20%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 20% 20%;
+  --primary: 14 84% 69%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 20 60% 90%;
+  --secondary-foreground: 20 20% 30%;
+  --muted: 30 20% 94%;
+  --muted-foreground: 20 10% 50%;
+  --accent: 160 40% 85%;
+  --accent-foreground: 160 40% 30%;
+  --destructive: 0 70% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 20% 88%;
+  --input: 30 20% 88%;
+  --ring: 14 84% 69%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 20 15% 12%;
+  --foreground: 30 20% 92%;
+  --card: 20 15% 16%;
+  --card-foreground: 30 20% 92%;
+  --primary: 14 84% 69%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 20 15% 22%;
+  --secondary-foreground: 30 20% 85%;
+  --muted: 20 15% 20%;
+  --muted-foreground: 30 10% 55%;
+  --accent: 160 30% 25%;
+  --accent-foreground: 160 40% 85%;
+  --destructive: 0 70% 45%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 20 15% 25%;
+  --input: 20 15% 25%;
+  --ring: 14 84% 69%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "Nunito", sans-serif;
+}
