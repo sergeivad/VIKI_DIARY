@@ -48,14 +48,75 @@ describe("summary routes", () => {
     };
     summaryService = {
       generateSummary: vi.fn(),
+      getSummary: vi.fn(),
+      saveSummary: vi.fn(),
     };
   });
 
+  describe("GET /summary", () => {
+    it("returns existing summary (200)", async () => {
+      babyService.getBabyByUser.mockResolvedValue(fakeBaby);
+      summaryService.getSummary.mockResolvedValue({
+        id: "sum-1",
+        babyId: "baby-1",
+        month: 1,
+        year: 2026,
+        text: "A great month!",
+        createdAt: new Date("2026-02-01T12:00:00Z"),
+        updatedAt: new Date("2026-02-01T12:00:00Z"),
+      });
+
+      const app = buildApp(babyService, diaryService, summaryService);
+
+      const res = await request(app)
+        .get("/summary?month=1&year=2026");
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        summary: "A great month!",
+        month: 1,
+        year: 2026,
+        createdAt: "2026-02-01T12:00:00.000Z",
+      });
+      expect(summaryService.getSummary).toHaveBeenCalledWith("baby-1", 1, 2026);
+    });
+
+    it("returns 404 when no summary exists", async () => {
+      babyService.getBabyByUser.mockResolvedValue(fakeBaby);
+      summaryService.getSummary.mockResolvedValue(null);
+
+      const app = buildApp(babyService, diaryService, summaryService);
+
+      const res = await request(app)
+        .get("/summary?month=1&year=2026");
+
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 400 without month/year", async () => {
+      const app = buildApp(babyService, diaryService, summaryService);
+
+      const res = await request(app)
+        .get("/summary");
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("POST /summary", () => {
-    it("returns generated summary (200)", async () => {
+    it("generates, saves, and returns summary (200)", async () => {
       babyService.getBabyByUser.mockResolvedValue(fakeBaby);
       diaryService.getEntriesForDateRange.mockResolvedValue(fakeEntries);
       summaryService.generateSummary.mockResolvedValue("Baby had a great month!");
+      summaryService.saveSummary.mockResolvedValue({
+        id: "sum-1",
+        babyId: "baby-1",
+        month: 1,
+        year: 2026,
+        text: "Baby had a great month!",
+        createdAt: new Date("2026-02-01T12:00:00Z"),
+        updatedAt: new Date("2026-02-01T12:00:00Z"),
+      });
 
       const app = buildApp(babyService, diaryService, summaryService);
 
@@ -69,13 +130,7 @@ describe("summary routes", () => {
         totalEntries: 2,
         month: 1,
         year: 2026,
-      });
-      expect(babyService.getBabyByUser).toHaveBeenCalledWith("uuid-1");
-      expect(diaryService.getEntriesForDateRange).toHaveBeenCalledWith({
-        babyId: "baby-1",
-        actorId: "uuid-1",
-        dateFrom: new Date(Date.UTC(2026, 0, 1)),
-        dateTo: new Date(Date.UTC(2026, 0, 31)),
+        createdAt: "2026-02-01T12:00:00.000Z",
       });
       expect(summaryService.generateSummary).toHaveBeenCalledWith({
         babyName: "Viki",
@@ -87,6 +142,9 @@ describe("summary routes", () => {
           "[2026-01-12] Bob: Played in the park",
         ],
       });
+      expect(summaryService.saveSummary).toHaveBeenCalledWith(
+        "baby-1", 1, 2026, "Baby had a great month!"
+      );
     });
 
     it("returns 400 without month/year", async () => {

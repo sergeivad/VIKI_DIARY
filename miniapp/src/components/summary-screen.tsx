@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TelegramHeader } from "./telegram-header";
 import { api } from "@/api/client";
 import type { SummaryResponse } from "@/api/types";
-import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 
 const MONTHS = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -30,7 +30,7 @@ function LoadingAnimation() {
   );
 }
 
-function EmptySummary() {
+function EmptyState({ onGenerate, generating }: { onGenerate: () => void; generating: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="mb-4 text-muted-foreground/30">
@@ -42,11 +42,19 @@ function EmptySummary() {
         </svg>
       </div>
       <h3 className="text-base font-bold text-foreground mb-1">
-        В этом месяце записей пока нет
+        Саммари ещё не создано
       </h3>
-      <p className="text-sm text-muted-foreground">
-        Отправьте что-нибудь боту, чтобы появилось саммари
+      <p className="text-sm text-muted-foreground mb-4">
+        Нажмите кнопку, чтобы AI проанализировал записи за месяц
       </p>
+      <button
+        onClick={onGenerate}
+        disabled={generating}
+        className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      >
+        <Sparkles className="h-4 w-4" />
+        Сгенерировать
+      </button>
     </div>
   );
 }
@@ -56,11 +64,14 @@ export function SummaryScreen() {
   const [monthIndex, setMonthIndex] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isCurrentMonth = monthIndex === now.getMonth() && year === now.getFullYear();
+  const month = monthIndex + 1;
 
+  // Fetch existing summary on month change
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -68,7 +79,7 @@ export function SummaryScreen() {
     setData(null);
 
     api
-      .getSummary(monthIndex + 1, year)
+      .getSummary(month, year)
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -80,7 +91,24 @@ export function SummaryScreen() {
       });
 
     return () => { cancelled = true; };
-  }, [monthIndex, year]);
+  }, [month, year]);
+
+  const handleGenerate = useCallback(() => {
+    setGenerating(true);
+    setError(null);
+
+    api
+      .generateSummary(month, year)
+      .then((res) => {
+        setData(res);
+      })
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setGenerating(false);
+      });
+  }, [month, year]);
 
   function goToPrevMonth() {
     if (monthIndex === 0) {
@@ -129,9 +157,23 @@ export function SummaryScreen() {
         </div>
 
         {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : generating ? (
           <LoadingAnimation />
-        ) : error || !data ? (
-          <EmptySummary />
+        ) : error && !data ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-sm text-destructive mb-4">{error}</p>
+            <button
+              onClick={handleGenerate}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Попробовать снова
+            </button>
+          </div>
+        ) : !data ? (
+          <EmptyState onGenerate={handleGenerate} generating={generating} />
         ) : (
           <div className="space-y-5">
             {/* Summary card */}
@@ -152,11 +194,25 @@ export function SummaryScreen() {
             </div>
 
             {/* Stats counter */}
-            <div className="rounded-2xl bg-card p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-              <div className="text-center mb-4">
-                <p className="text-4xl font-extrabold text-primary">{data.totalEntries}</p>
-                <p className="text-sm text-muted-foreground mt-1">записей за месяц</p>
+            {data.totalEntries > 0 && (
+              <div className="rounded-2xl bg-card p-5 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+                <div className="text-center mb-4">
+                  <p className="text-4xl font-extrabold text-primary">{data.totalEntries}</p>
+                  <p className="text-sm text-muted-foreground mt-1">записей за месяц</p>
+                </div>
               </div>
+            )}
+
+            {/* Regenerate button */}
+            <div className="flex justify-center">
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="inline-flex items-center gap-2 rounded-xl bg-secondary px-5 py-2.5 text-sm font-semibold text-secondary-foreground disabled:opacity-50"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Обновить
+              </button>
             </div>
           </div>
         )}

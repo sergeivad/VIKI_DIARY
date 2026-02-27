@@ -70,7 +70,21 @@ class ApiClient {
     return this.request(`/entries/${entryId}`, { method: "DELETE" });
   }
 
-  getSummary(month: number, year: number): Promise<SummaryResponse> {
+  async getSummary(month: number, year: number): Promise<SummaryResponse | null> {
+    const res = await fetch(`${this.baseUrl}/summary?month=${month}&year=${year}`, {
+      headers: {
+        Authorization: `tma ${this.initData}`,
+      },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `API error: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  generateSummary(month: number, year: number): Promise<SummaryResponse> {
     return this.request("/summary", {
       method: "POST",
       body: JSON.stringify({ month, year }),

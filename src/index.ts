@@ -28,7 +28,7 @@ const inviteService = new InviteService(prisma, env.BOT_USERNAME);
 const diaryService = new DiaryService(prisma);
 const transcriptionService = new TranscriptionService(openai);
 const taggingService = new TaggingService(openai, logger);
-const summaryService = new SummaryService(openai, logger);
+const summaryService = new SummaryService(prisma, openai, logger);
 
 let bot!: ReturnType<typeof createBot>;
 

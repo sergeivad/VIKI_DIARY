@@ -1,4 +1,5 @@
 import type OpenAI from "openai";
+import type { PrismaClient, Summary } from "@prisma/client";
 import type { Logger } from "pino";
 
 import { SummaryDomainError, SummaryErrorCode } from "./summary.errors.js";
@@ -25,9 +26,24 @@ const SYSTEM_PROMPT = `Ты — помощник для родителей, пи
 
 export class SummaryService {
   constructor(
+    private readonly prisma: PrismaClient,
     private readonly openai: OpenAI,
     private readonly log: Logger
   ) {}
+
+  async getSummary(babyId: string, month: number, year: number): Promise<Summary | null> {
+    return this.prisma.summary.findUnique({
+      where: { babyId_month_year: { babyId, month, year } },
+    });
+  }
+
+  async saveSummary(babyId: string, month: number, year: number, text: string): Promise<Summary> {
+    return this.prisma.summary.upsert({
+      where: { babyId_month_year: { babyId, month, year } },
+      update: { text },
+      create: { babyId, month, year, text },
+    });
+  }
 
   async generateSummary(input: SummaryInput): Promise<string> {
     if (input.entriesText.length === 0) {

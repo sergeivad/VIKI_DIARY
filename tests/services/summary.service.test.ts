@@ -5,7 +5,10 @@ import type { Logger } from "pino";
 import { SummaryService } from "../../src/services/summary.service.js";
 import { SummaryErrorCode } from "../../src/services/summary.errors.js";
 
+import type { PrismaClient } from "@prisma/client";
+
 const mockLogger = { debug: vi.fn(), error: vi.fn() } as unknown as Logger;
+const mockPrisma = {} as unknown as PrismaClient;
 
 function createMockOpenAI(
   response: { choices: Array<{ message: { content: string | null } }> } | Error
@@ -36,7 +39,7 @@ describe("SummaryService", () => {
   it("returns generated summary text", async () => {
     const summaryText = "Вика в феврале много гуляла...";
     const openai = createMockOpenAI(chatResponse(summaryText));
-    const service = new SummaryService(openai, mockLogger);
+    const service = new SummaryService(mockPrisma, openai, mockLogger);
 
     const result = await service.generateSummary({
       ...baseInput,
@@ -48,7 +51,7 @@ describe("SummaryService", () => {
 
   it("throws noEntries when entriesText is empty", async () => {
     const openai = createMockOpenAI(chatResponse("irrelevant"));
-    const service = new SummaryService(openai, mockLogger);
+    const service = new SummaryService(mockPrisma, openai, mockLogger);
 
     await expect(
       service.generateSummary({ ...baseInput, entriesText: [] })
@@ -57,7 +60,7 @@ describe("SummaryService", () => {
 
   it("throws generationFailed when response content is null", async () => {
     const openai = createMockOpenAI(chatResponse(null));
-    const service = new SummaryService(openai, mockLogger);
+    const service = new SummaryService(mockPrisma, openai, mockLogger);
 
     await expect(
       service.generateSummary({ ...baseInput, entriesText: ["text"] })
@@ -66,7 +69,7 @@ describe("SummaryService", () => {
 
   it("throws generationFailed on API error", async () => {
     const openai = createMockOpenAI(new Error("API down"));
-    const service = new SummaryService(openai, mockLogger);
+    const service = new SummaryService(mockPrisma, openai, mockLogger);
 
     await expect(
       service.generateSummary({ ...baseInput, entriesText: ["text"] })
@@ -75,7 +78,7 @@ describe("SummaryService", () => {
 
   it("passes correct model and includes baby name in user message", async () => {
     const openai = createMockOpenAI(chatResponse("Summary"));
-    const service = new SummaryService(openai, mockLogger);
+    const service = new SummaryService(mockPrisma, openai, mockLogger);
 
     await service.generateSummary({
       ...baseInput,

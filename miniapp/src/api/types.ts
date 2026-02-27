@@ -44,4 +44,5 @@ export interface SummaryResponse {
   totalEntries: number;
   month: number;
   year: number;
+  createdAt: string;
 }

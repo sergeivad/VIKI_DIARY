@@ -13,6 +13,41 @@ export function createSummaryRouter(
 ): Router {
   const router = Router();
 
+  router.get("/", async (req, res: Response, next: NextFunction) => {
+    try {
+      const { actor } = req as AuthedRequest;
+      const month = Number(req.query.month);
+      const year = Number(req.query.year);
+
+      if (!month || !year) {
+        res.status(400).json({ error: "month and year query params are required" });
+        return;
+      }
+
+      const baby = await babyService.getBabyByUser(actor.userId);
+      if (!baby) {
+        res.status(404).json({ error: "Baby not found" });
+        return;
+      }
+
+      const summary = await summaryService.getSummary(baby.id, month, year);
+      if (!summary) {
+        res.status(404).json({ error: "Summary not found" });
+        return;
+      }
+
+      res.json({
+        summary: summary.text,
+        totalEntries: 0,
+        month: summary.month,
+        year: summary.year,
+        createdAt: summary.createdAt.toISOString(),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
       const { actor } = req as AuthedRequest;
@@ -47,7 +82,7 @@ export function createSummaryRouter(
         return `[${date}] ${entry.author.firstName}: ${textContent}`;
       });
 
-      const summary = await summaryService.generateSummary({
+      const text = await summaryService.generateSummary({
         babyName: baby.name,
         birthDate: baby.birthDate,
         month,
@@ -55,11 +90,14 @@ export function createSummaryRouter(
         entriesText,
       });
 
+      const saved = await summaryService.saveSummary(baby.id, month, year, text);
+
       res.json({
-        summary,
+        summary: saved.text,
         totalEntries: entries.length,
-        month,
-        year,
+        month: saved.month,
+        year: saved.year,
+        createdAt: saved.createdAt.toISOString(),
       });
     } catch (err) {
       next(err);
