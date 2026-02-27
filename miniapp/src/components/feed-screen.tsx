@@ -8,7 +8,8 @@ import { Play, Mic } from "lucide-react";
 function EntryCard({ entry }: { entry: DiaryEntry }) {
   const { navigate } = useApp();
   const photos = entry.items.filter((m) => m.type === "photo" || m.type === "video");
-  const hasVoice = entry.items.some((m) => m.type === "voice");
+  const voiceItem = entry.items.find((m) => m.type === "voice");
+  const hasVoice = !!voiceItem;
   const textItem = entry.items.find((m) => m.type === "text");
   const showCount = Math.min(photos.length, 4);
   const extraCount = photos.length - 4;
@@ -71,17 +72,24 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
 
       {/* Voice message indicator */}
       {hasVoice && (
-        <div className="flex items-center gap-2 mb-3 rounded-xl bg-secondary px-3 py-2">
-          <Mic className="h-4 w-4 text-primary" />
-          <div className="flex gap-[2px] items-end">
-            {Array.from({ length: 24 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-[3px] rounded-full bg-primary/40"
-                style={{ height: `${6 + Math.sin(i * 0.6) * 8 + Math.random() * 6}px` }}
-              />
-            ))}
+        <div className="mb-3">
+          <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+            <Mic className="h-4 w-4 text-primary" />
+            <div className="flex gap-[2px] items-end">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-[3px] rounded-full bg-primary/40"
+                  style={{ height: `${6 + Math.sin(i * 0.6) * 8 + Math.random() * 6}px` }}
+                />
+              ))}
+            </div>
           </div>
+          {voiceItem?.textContent && !textItem?.textContent && (
+            <p className="text-sm text-foreground/70 leading-relaxed line-clamp-2 mt-1.5 px-1 italic">
+              {voiceItem.textContent}
+            </p>
+          )}
         </div>
       )}
 

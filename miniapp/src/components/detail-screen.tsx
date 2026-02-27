@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "./app-context";
 import { TelegramHeader } from "./telegram-header";
 import { formatDateRu, formatTime } from "@/lib/format";
 import { api } from "@/api/client";
-import type { DiaryEntry } from "@/api/types";
-import { Play, Mic, Pencil, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import type { DiaryEntry, EntryItem } from "@/api/types";
+import { Play, Pause, Mic, Pencil, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 function PhotoViewer({
   photos,
@@ -60,6 +60,67 @@ function PhotoViewer({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function VoicePlayer({ item }: { item: EntryItem }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  function toggle() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-secondary px-4 py-3 mb-4">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggle}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+        >
+          {playing ? (
+            <Pause className="h-4 w-4" fill="currentColor" />
+          ) : (
+            <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
+          )}
+        </button>
+        <div className="flex-1">
+          <div className="h-1 rounded-full bg-primary/20 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-200"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+        </div>
+        <Mic className="h-4 w-4 text-muted-foreground" />
+      </div>
+      {item.textContent && (
+        <p className="text-sm text-foreground/80 leading-relaxed mt-2 italic">
+          {item.textContent}
+        </p>
+      )}
+      {item.fileId && (
+        <audio
+          ref={audioRef}
+          src={api.mediaUrl(item.fileId)}
+          preload="metadata"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => { setPlaying(false); setProgress(0); }}
+          onTimeUpdate={(e) => {
+            const a = e.currentTarget;
+            if (a.duration) setProgress(a.currentTime / a.duration);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -181,21 +242,7 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
 
         {/* Voice */}
         {voices.map((media) => (
-          <div key={media.id} className="flex items-center gap-3 rounded-2xl bg-secondary px-4 py-3 mb-4">
-            <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
-            </button>
-            <div className="flex-1 flex gap-[2px] items-end">
-              {Array.from({ length: 40 }).map((_, j) => (
-                <div
-                  key={j}
-                  className="w-[3px] rounded-full bg-primary/50"
-                  style={{ height: `${4 + Math.sin(j * 0.5) * 10 + Math.random() * 8}px` }}
-                />
-              ))}
-            </div>
-            <Mic className="h-4 w-4 text-muted-foreground" />
-          </div>
+          <VoicePlayer key={media.id} item={media} />
         ))}
 
         {/* Tags */}
