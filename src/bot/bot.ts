@@ -7,6 +7,7 @@ import { normalizeBotUsername } from "../utils/invite.js";
 import { dateInputConversation } from "./conversations/dateInput.js";
 import { editEntryConversation } from "./conversations/editEntry.js";
 import { onboardingConversation } from "./conversations/onboarding.js";
+import { handleApp } from "./handlers/app.js";
 import { handleEntryCallbacks } from "./handlers/callbacks.js";
 import { handleDiaryMessage } from "./handlers/diary.js";
 import { handleHistory } from "./handlers/history.js";
@@ -38,6 +39,7 @@ export function createBot(services: Services): Bot<BotContext> {
   bot.command("invite", handleInvite);
   bot.command("history", handleHistory);
   bot.command("summary", handleSummary);
+  bot.command("app", handleApp);
 
   bot.callbackQuery("onboarding:create", async (ctx) => {
     if (!ctx.from) {
