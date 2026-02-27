@@ -58,7 +58,7 @@ function AppRouter() {
   }
 }
 
-export function AppProvider() {
+export function AppProvider({ ready }: { ready: boolean }) {
   const [screen, setScreen] = useState<Screen>({ type: "feed" });
   const [, setHistory] = useState<Screen[]>([]);
   const [baby, setBaby] = useState<Baby | null>(null);
@@ -99,8 +99,9 @@ export function AppProvider() {
     }
   }, [baby]);
 
-  // Load baby on mount
+  // Load baby when initData is ready
   useEffect(() => {
+    if (!ready) return;
     let cancelled = false;
     async function init() {
       try {
@@ -113,7 +114,7 @@ export function AppProvider() {
     }
     init();
     return () => { cancelled = true; };
-  }, []);
+  }, [ready]);
 
   // Load entries when baby is available
   useEffect(() => {
