@@ -76,7 +76,7 @@ describe("media routes", () => {
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toContain("image/jpeg");
       expect(res.headers["cache-control"]).toBe("public, max-age=86400");
-      expect(res.text).toBe("image-data");
+      expect(res.body.toString()).toBe("image-data");
     } finally {
       globalThis.fetch = originalFetch;
     }

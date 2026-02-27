@@ -1,7 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { webhookCallback } from "grammy";
 import OpenAI from "openai";
 
+import { createApiRouter } from "./api/router.js";
 import { createBot } from "./bot/bot.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
@@ -47,6 +50,13 @@ const services = {
 
 bot = createBot(services);
 
+const getFileUrl = async (fileId: string): Promise<string> => {
+  const file = await bot.api.getFile(fileId);
+  return `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${file.file_path}`;
+};
+
+const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl);
+
 app.get("/health/live", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });
 });
@@ -63,6 +73,17 @@ app.get("/health/ready", async (_req, res) => {
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });
+});
+
+// REST API
+app.use("/api/v1", express.json(), apiRouter);
+
+// Mini App static files
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const miniappDist = path.join(__dirname, "..", "miniapp", "dist");
+app.use("/app", express.static(miniappDist));
+app.get("/app/*", (_req, res) => {
+  res.sendFile(path.join(miniappDist, "index.html"));
 });
 
 app.use(
