@@ -16,6 +16,10 @@ export function createApiRouter(
 ): Router {
   const router = Router();
 
+  // Media proxy before auth — <img src> can't send Authorization header.
+  // Telegram fileId is opaque and unguessable, so it serves as an access token.
+  router.use("/media", createMediaRouter(getFileUrl));
+
   router.use(createAuthMiddleware(services.userService, botToken));
 
   router.use(
@@ -26,7 +30,6 @@ export function createApiRouter(
     "/entries",
     createEntriesRouter(services.diaryService, services.taggingService),
   );
-  router.use("/media", createMediaRouter(getFileUrl));
   router.use(
     "/summary",
     createSummaryRouter(
