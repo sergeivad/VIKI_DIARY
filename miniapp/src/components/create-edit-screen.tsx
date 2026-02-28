@@ -147,8 +147,11 @@ export function CreateScreen() {
 
 export function EditScreen({ entry }: { entry: DiaryEntry }) {
   const { goBack, updateEntry, showSnackbar } = useApp();
-  const textItem = entry.items.find((m) => m.type === "text");
-  const [text, setText] = useState(textItem?.textContent ?? "");
+  const initialText = entry.items
+    .map((m) => m.textContent?.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const [text, setText] = useState(initialText);
   const [date, setDate] = useState(entry.eventDate);
   const [saving, setSaving] = useState(false);
 
@@ -158,7 +161,7 @@ export function EditScreen({ entry }: { entry: DiaryEntry }) {
 
     try {
       let updated = entry;
-      if (text.trim() !== (textItem?.textContent ?? "")) {
+      if (text.trim() !== initialText) {
         updated = await api.updateEntryText(entry.id, text.trim());
       }
       if (date !== entry.eventDate) {
@@ -176,7 +179,7 @@ export function EditScreen({ entry }: { entry: DiaryEntry }) {
     }
   }
 
-  const canSave = text.trim().length > 0 && (text !== (textItem?.textContent ?? "") || date !== entry.eventDate);
+  const canSave = text.trim().length > 0 && (text !== initialText || date !== entry.eventDate);
 
   const mediaItems = entry.items.filter((m) => m.type === "photo" || m.type === "video");
 
