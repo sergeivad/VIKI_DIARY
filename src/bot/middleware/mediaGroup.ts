@@ -62,6 +62,7 @@ function extractItem(message: NonNullable<BotContext["message"]>): DiaryItemInpu
     return {
       type: "video",
       fileId: message.video.file_id,
+      thumbnailFileId: message.video.thumbnail?.file_id ?? null,
       textContent: "caption" in message ? message.caption ?? null : null
     };
   }

@@ -82,8 +82,9 @@ model EntryItem {
   entryId     String       @map("entry_id") @db.Uuid
   type        EntryItemType
   textContent String?      @map("text_content")
-  fileId      String?      @map("file_id")
-  orderIndex  Int          @map("order_index")
+  fileId          String?      @map("file_id")
+  thumbnailFileId String?      @map("thumbnail_file_id")
+  orderIndex      Int          @map("order_index")
   createdAt   DateTime     @default(now()) @map("created_at")
 
   entry       DiaryEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)

@@ -225,6 +225,7 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
     item = {
       type: "video",
       fileId: ctx.message.video.file_id,
+      thumbnailFileId: ctx.message.video.thumbnail?.file_id ?? null,
       textContent: "caption" in ctx.message ? ctx.message.caption ?? null : null
     };
   }

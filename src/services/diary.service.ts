@@ -10,6 +10,7 @@ export type DiaryItemInput = {
   type: "text" | "photo" | "video" | "voice";
   textContent?: string | null;
   fileId?: string | null;
+  thumbnailFileId?: string | null;
 };
 
 export type DiaryEntryDTO = DiaryEntry & {
@@ -96,6 +97,7 @@ type NormalizedDiaryItem = {
   type: EntryItemTypeEnum;
   textContent: string | null;
   fileId: string | null;
+  thumbnailFileId: string | null;
 };
 
 type EntryAccessContext = {
@@ -134,7 +136,8 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
       return {
         type: EntryItemType.text,
         textContent,
-        fileId: null
+        fileId: null,
+        thumbnailFileId: null
       };
     }
 
@@ -155,7 +158,8 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
     return {
       type: typeMap[item.type as keyof typeof typeMap],
       textContent: normalizeText(item.textContent),
-      fileId
+      fileId,
+      thumbnailFileId: normalizeText(item.thumbnailFileId)
     };
   });
 }
@@ -228,6 +232,7 @@ export class DiaryService {
             type: item.type,
             textContent: item.textContent,
             fileId: item.fileId,
+            thumbnailFileId: item.thumbnailFileId,
             orderIndex: index
           }))
         }
@@ -272,6 +277,7 @@ export class DiaryService {
         type: item.type,
         textContent: item.textContent,
         fileId: item.fileId,
+        thumbnailFileId: item.thumbnailFileId,
         orderIndex: nextOrderIndex + index
       }))
     });

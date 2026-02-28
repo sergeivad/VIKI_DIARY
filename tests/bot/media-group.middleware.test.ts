@@ -117,7 +117,7 @@ describe("media group middleware", () => {
       mediaGroupId: "group-1",
       services,
       message: {
-        video: { file_id: "v1" }
+        video: { file_id: "v1", thumbnail: { file_id: "v1-thumb" } }
       }
     });
 
@@ -138,7 +138,7 @@ describe("media group middleware", () => {
       items: [
         { type: "photo", fileId: "p1-large", textContent: "group caption" },
         { type: "photo", fileId: "p2-large", textContent: null },
-        { type: "video", fileId: "v1", textContent: null }
+        { type: "video", fileId: "v1", thumbnailFileId: "v1-thumb", textContent: null }
       ]
     });
 

@@ -192,7 +192,7 @@ describe("handleDiaryMessage", () => {
     const ctx = {
       from: { id: 42, first_name: "Sergei", username: "sergei" },
       message: {
-        video: { file_id: "video-1" },
+        video: { file_id: "video-1", thumbnail: { file_id: "thumb-1" } },
         caption: "video caption"
       },
       services,
@@ -204,7 +204,7 @@ describe("handleDiaryMessage", () => {
     expect(services.diaryService.createOrAppend).toHaveBeenCalledWith({
       babyId: "baby-1",
       authorId: "user-1",
-      items: [{ type: "video", fileId: "video-1", textContent: "video caption" }]
+      items: [{ type: "video", fileId: "video-1", thumbnailFileId: "thumb-1", textContent: "video caption" }]
     });
     expect(services.notificationService.notifyOtherMembers).toHaveBeenCalledWith({
       babyId: "baby-1",

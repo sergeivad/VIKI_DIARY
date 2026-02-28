@@ -170,6 +170,7 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
             <div key={media.id} className="w-full overflow-hidden rounded-2xl bg-muted mb-4">
               <video
                 src={api.mediaUrl(media.fileId)}
+                poster={media.thumbnailFileId ? api.mediaUrl(media.thumbnailFileId) : undefined}
                 controls
                 preload="metadata"
                 playsInline

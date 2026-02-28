@@ -68,12 +68,14 @@ describe("DiaryService", () => {
               type: EntryItemType.text,
               textContent: "first",
               fileId: null,
+              thumbnailFileId: null,
               orderIndex: 0
             },
             {
               type: EntryItemType.photo,
               textContent: "caption",
               fileId: "file-1",
+              thumbnailFileId: null,
               orderIndex: 1
             }
           ]
@@ -173,6 +175,7 @@ describe("DiaryService", () => {
           type: EntryItemType.text,
           textContent: "new text",
           fileId: null,
+          thumbnailFileId: null,
           orderIndex: 3
         },
         {
@@ -180,6 +183,7 @@ describe("DiaryService", () => {
           type: EntryItemType.video,
           textContent: "video caption",
           fileId: "video-1",
+          thumbnailFileId: null,
           orderIndex: 4
         }
       ]
@@ -289,6 +293,7 @@ describe("DiaryService", () => {
           type: EntryItemType.text,
           textContent: "hello",
           fileId: null,
+          thumbnailFileId: null,
           orderIndex: 2
         }
       ]
@@ -344,6 +349,7 @@ describe("DiaryService", () => {
               type: EntryItemType.voice,
               textContent: "transcription text",
               fileId: "voice-file-1",
+              thumbnailFileId: null,
               orderIndex: 0
             }
           ]

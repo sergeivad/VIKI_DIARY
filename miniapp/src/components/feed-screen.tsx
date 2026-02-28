@@ -53,6 +53,7 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
                 <>
                   <video
                     src={api.mediaUrl(media.fileId)}
+                    poster={media.thumbnailFileId ? api.mediaUrl(media.thumbnailFileId) : undefined}
                     preload="metadata"
                     muted
                     playsInline

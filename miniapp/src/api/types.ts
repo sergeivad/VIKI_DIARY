@@ -16,6 +16,7 @@ export interface EntryItem {
   type: "text" | "photo" | "video" | "voice";
   textContent: string | null;
   fileId: string | null;
+  thumbnailFileId: string | null;
   orderIndex: number;
 }
 

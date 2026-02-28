@@ -55,18 +55,13 @@ describe("media routes", () => {
   it("proxies upstream response with correct headers", async () => {
     getFileUrl.mockResolvedValue("https://api.telegram.org/file/bot123/photo.jpg");
 
-    const body = new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode("image-data"));
-        controller.close();
-      },
-    });
+    const imageData = new TextEncoder().encode("image-data");
 
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       headers: new Headers({ "content-type": "image/jpeg" }),
-      body,
+      arrayBuffer: () => Promise.resolve(imageData.buffer),
     }) as any;
 
     try {
@@ -76,7 +71,36 @@ describe("media routes", () => {
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toContain("image/jpeg");
       expect(res.headers["cache-control"]).toBe("public, max-age=86400");
+      expect(res.headers["accept-ranges"]).toBe("bytes");
+      expect(res.headers["content-length"]).toBe(String(imageData.length));
       expect(res.body.toString()).toBe("image-data");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("handles Range requests with 206 Partial Content", async () => {
+    getFileUrl.mockResolvedValue("https://api.telegram.org/file/bot123/video.mp4");
+
+    const videoData = new TextEncoder().encode("0123456789");
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "video/mp4" }),
+      arrayBuffer: () => Promise.resolve(videoData.buffer),
+    }) as any;
+
+    try {
+      const app = buildApp(getFileUrl);
+      const res = await request(app)
+        .get("/media/some-file-id")
+        .set("Range", "bytes=0-4");
+
+      expect(res.status).toBe(206);
+      expect(res.headers["content-range"]).toBe("bytes 0-4/10");
+      expect(res.headers["content-length"]).toBe("5");
+      expect(res.body.toString()).toBe("01234");
     } finally {
       globalThis.fetch = originalFetch;
     }
