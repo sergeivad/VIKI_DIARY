@@ -154,7 +154,7 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
 
         {/* Full text (or voice transcription) */}
         {displayText && (
-          <p className="text-[15px] text-foreground leading-relaxed mb-5">{displayText}</p>
+          <p className="text-[15px] text-foreground leading-relaxed mb-5 whitespace-pre-line">{displayText}</p>
         )}
 
         {/* Photos */}
