@@ -133,9 +133,17 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
       <main className="flex-1 px-4 pb-24 pt-4">
         {/* Author header */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-10 w-10 rounded-full bg-coral-light flex items-center justify-center text-base font-bold text-primary">
-            {entry.author.firstName[0]}
-          </div>
+          {entry.author.avatarFileId ? (
+            <img
+              src={api.mediaUrl(entry.author.avatarFileId)}
+              alt=""
+              className="h-10 w-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-coral-light flex items-center justify-center text-base font-bold text-primary">
+              {entry.author.firstName[0]}
+            </div>
+          )}
           <div>
             <p className="text-sm font-bold text-foreground">{entry.author.firstName}</p>
             <p className="text-xs text-muted-foreground">

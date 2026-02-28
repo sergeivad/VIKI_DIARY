@@ -5,7 +5,8 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 vi.mock("../../src/utils/telegram.js", () => ({
-  downloadTelegramFile: vi.fn()
+  downloadTelegramFile: vi.fn(),
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
 }));
 
 import { handleDiaryMessage } from "../../src/bot/handlers/diary.js";

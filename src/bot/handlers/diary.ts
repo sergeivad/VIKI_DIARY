@@ -3,7 +3,7 @@ import type { EntryItem } from "@prisma/client";
 import type { DiaryItemInput } from "../../services/diary.service.js";
 import { TranscriptionError, TranscriptionErrorCode } from "../../services/transcription.errors.js";
 import type { BotContext } from "../../types/bot.js";
-import { downloadTelegramFile } from "../../utils/telegram.js";
+import { downloadTelegramFile, getAvatarFileId } from "../../utils/telegram.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
 import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
@@ -87,10 +87,12 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
       return;
     }
 
+    const avatarFileId = await getAvatarFileId(ctx.api, ctx.from.id);
     const user = await ctx.services.userService.findOrCreateUser({
       telegramId: BigInt(ctx.from.id),
       firstName: ctx.from.first_name,
-      username: ctx.from.username ?? null
+      username: ctx.from.username ?? null,
+      avatarFileId
     });
 
     const baby = await ctx.services.babyService.getBabyByUser(user.id);
@@ -143,10 +145,12 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
       return;
     }
 
+    const avatarFileId = await getAvatarFileId(ctx.api, ctx.from.id);
     const user = await ctx.services.userService.findOrCreateUser({
       telegramId: BigInt(ctx.from.id),
       firstName: ctx.from.first_name,
-      username: ctx.from.username ?? null
+      username: ctx.from.username ?? null,
+      avatarFileId
     });
 
     const baby = await ctx.services.babyService.getBabyByUser(user.id);
@@ -235,10 +239,12 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
     return;
   }
 
+  const avatarFileId = await getAvatarFileId(ctx.api, ctx.from.id);
   const user = await ctx.services.userService.findOrCreateUser({
     telegramId: BigInt(ctx.from.id),
     firstName: ctx.from.first_name,
-    username: ctx.from.username ?? null
+    username: ctx.from.username ?? null,
+    avatarFileId
   });
 
   const baby = await ctx.services.babyService.getBabyByUser(user.id);

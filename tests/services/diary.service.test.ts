@@ -788,7 +788,8 @@ describe("DiaryService", () => {
           select: {
             id: true,
             firstName: true,
-            username: true
+            username: true,
+            avatarFileId: true
           }
         },
         items: {

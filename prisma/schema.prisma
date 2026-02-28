@@ -23,6 +23,7 @@ model User {
   telegramId    BigInt       @unique @map("telegram_id")
   firstName     String       @map("first_name")
   username      String?
+  avatarFileId  String?      @map("avatar_file_id")
   createdAt     DateTime     @default(now()) @map("created_at")
   memberships   BabyMember[]
   diaryEntries  DiaryEntry[] @relation("DiaryEntryAuthor")

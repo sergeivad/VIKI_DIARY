@@ -1,5 +1,17 @@
 import type { Api, RawApi } from "grammy";
 
+export async function getAvatarFileId(
+  api: Api<RawApi>,
+  userId: number
+): Promise<string | null> {
+  try {
+    const photos = await api.getUserProfilePhotos(userId, { limit: 1 });
+    return photos.photos[0]?.[0]?.file_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function downloadTelegramFile(
   api: Api<RawApi>,
   token: string,

@@ -6,6 +6,7 @@ import type { BotContext } from "../../types/bot.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
+import { getAvatarFileId } from "../../utils/telegram.js";
 
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
 const NO_DIARY_MESSAGE =
@@ -101,10 +102,12 @@ export function createMediaGroupMiddleware(
     }
 
     try {
+      const avatarFileId = await getAvatarFileId(buffered.ctx.api, buffered.ctx.from.id);
       const user = await buffered.ctx.services.userService.findOrCreateUser({
         telegramId: BigInt(buffered.ctx.from.id),
         firstName: buffered.ctx.from.first_name,
-        username: buffered.ctx.from.username ?? null
+        username: buffered.ctx.from.username ?? null,
+        avatarFileId
       });
 
       const baby = await buffered.ctx.services.babyService.getBabyByUser(user.id);

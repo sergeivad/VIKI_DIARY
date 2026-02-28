@@ -25,9 +25,17 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
     >
       {/* Author + time */}
       <div className="flex items-center gap-2.5 mb-2.5">
-        <div className="h-8 w-8 rounded-full bg-coral-light flex items-center justify-center text-sm font-bold text-primary overflow-hidden">
-          {entry.author.firstName[0]}
-        </div>
+        {entry.author.avatarFileId ? (
+          <img
+            src={api.mediaUrl(entry.author.avatarFileId)}
+            alt=""
+            className="h-8 w-8 rounded-full object-cover"
+          />
+        ) : (
+          <div className="h-8 w-8 rounded-full bg-coral-light flex items-center justify-center text-sm font-bold text-primary">
+            {entry.author.firstName[0]}
+          </div>
+        )}
         <span className="text-sm font-semibold text-foreground">{entry.author.firstName}</span>
         <span className="text-xs text-muted-foreground ml-auto">{formatTime(entry.createdAt)}</span>
       </div>

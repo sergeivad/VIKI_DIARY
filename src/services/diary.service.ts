@@ -21,6 +21,7 @@ export type HistoryEntryAuthor = {
   id: string;
   firstName: string;
   username: string | null;
+  avatarFileId: string | null;
 };
 
 export type HistoryEntryDTO = DiaryEntry & {
@@ -514,7 +515,8 @@ export class DiaryService {
               select: {
                 id: true,
                 firstName: true,
-                username: true
+                username: true,
+                avatarFileId: true
               }
             },
             items: {
@@ -565,7 +567,8 @@ export class DiaryService {
             select: {
               id: true,
               firstName: true,
-              username: true
+              username: true,
+              avatarFileId: true
             }
           },
           items: {

@@ -12,7 +12,8 @@ describe("UserService", () => {
     const user = await service.findOrCreateUser({
       telegramId: 42n,
       firstName: "Sergei",
-      username: "sergei"
+      username: "sergei",
+      avatarFileId: "avatar-123"
     });
 
     expect(user.id).toBe("user-1");
@@ -22,11 +23,13 @@ describe("UserService", () => {
       create: {
         telegramId: 42n,
         firstName: "Sergei",
-        username: "sergei"
+        username: "sergei",
+        avatarFileId: "avatar-123"
       },
       update: {
         firstName: "Sergei",
-        username: "sergei"
+        username: "sergei",
+        avatarFileId: "avatar-123"
       }
     });
   });

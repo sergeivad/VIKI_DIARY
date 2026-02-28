@@ -9,6 +9,7 @@ export interface Author {
   id: string;
   firstName: string;
   username: string | null;
+  avatarFileId: string | null;
 }
 
 export interface EntryItem {

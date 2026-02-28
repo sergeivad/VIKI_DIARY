@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/utils/telegram.js", () => ({
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
+}));
+
 import { createMediaGroupMiddleware } from "../../src/bot/middleware/mediaGroup.js";
 
 function buildServices(hasDiary = true) {
