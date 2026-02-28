@@ -49,21 +49,29 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
                 photos.length === 1 ? "aspect-[16/10]" : "aspect-square"
               } bg-muted`}
             >
-              {media.fileId && (
+              {media.fileId && media.type === "video" ? (
+                <>
+                  <video
+                    src={api.mediaUrl(media.fileId)}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90">
+                      <Play className="h-4 w-4 text-foreground ml-0.5" fill="currentColor" />
+                    </div>
+                  </div>
+                </>
+              ) : media.fileId ? (
                 <img
                   src={api.mediaUrl(media.fileId)}
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover"
                   loading="lazy"
                 />
-              )}
-              {media.type === "video" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90">
-                    <Play className="h-4 w-4 text-foreground ml-0.5" fill="currentColor" />
-                  </div>
-                </div>
-              )}
+              ) : null}
               {i === 3 && extraCount > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-foreground/40">
                   <span className="text-lg font-bold text-primary-foreground">+{extraCount}</span>

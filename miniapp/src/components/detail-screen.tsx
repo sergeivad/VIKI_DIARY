@@ -4,7 +4,7 @@ import { TelegramHeader } from "./telegram-header";
 import { formatDateRu, formatTime } from "@/lib/format";
 import { api } from "@/api/client";
 import type { DiaryEntry } from "@/api/types";
-import { Play, Mic, Pencil, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Mic, Pencil, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 function PhotoViewer({
   photos,
@@ -167,18 +167,14 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
         {/* Videos */}
         {videos.map((media) =>
           media.fileId ? (
-            <div key={media.id} className="relative w-full overflow-hidden rounded-2xl aspect-video bg-muted mb-4">
-              <img
+            <div key={media.id} className="w-full overflow-hidden rounded-2xl bg-muted mb-4">
+              <video
                 src={api.mediaUrl(media.fileId)}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                loading="lazy"
+                controls
+                preload="metadata"
+                playsInline
+                className="w-full"
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-card/90 shadow-lg">
-                  <Play className="h-6 w-6 text-foreground ml-1" fill="currentColor" />
-                </div>
-              </div>
             </div>
           ) : null,
         )}
