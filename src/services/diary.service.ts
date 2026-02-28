@@ -586,6 +586,16 @@ export class DiaryService {
         });
       }
 
+      // Clear captions from media items — text is now consolidated in the text item
+      await tx.entryItem.updateMany({
+        where: {
+          entryId: input.entryId,
+          type: { not: EntryItemType.text },
+          textContent: { not: null },
+        },
+        data: { textContent: null },
+      });
+
       const updated = await tx.diaryEntry.findUnique({
         where: { id: input.entryId },
         include: ENTRY_INCLUDE,
