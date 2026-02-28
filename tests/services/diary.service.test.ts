@@ -68,18 +68,28 @@ describe("DiaryService", () => {
               type: EntryItemType.text,
               textContent: "first",
               fileId: null,
+              thumbnailFileId: null,
               orderIndex: 0
             },
             {
               type: EntryItemType.photo,
               textContent: "caption",
               fileId: "file-1",
+              thumbnailFileId: null,
               orderIndex: 1
             }
           ]
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -113,6 +123,14 @@ describe("DiaryService", () => {
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -173,6 +191,7 @@ describe("DiaryService", () => {
           type: EntryItemType.text,
           textContent: "new text",
           fileId: null,
+          thumbnailFileId: null,
           orderIndex: 3
         },
         {
@@ -180,6 +199,7 @@ describe("DiaryService", () => {
           type: EntryItemType.video,
           textContent: "video caption",
           fileId: "video-1",
+          thumbnailFileId: null,
           orderIndex: 4
         }
       ]
@@ -289,6 +309,7 @@ describe("DiaryService", () => {
           type: EntryItemType.text,
           textContent: "hello",
           fileId: null,
+          thumbnailFileId: null,
           orderIndex: 2
         }
       ]
@@ -344,12 +365,21 @@ describe("DiaryService", () => {
               type: EntryItemType.voice,
               textContent: "transcription text",
               fileId: "voice-file-1",
+              thumbnailFileId: null,
               orderIndex: 0
             }
           ]
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -439,6 +469,14 @@ describe("DiaryService", () => {
         eventDate: new Date("2026-02-21T00:00:00.000Z")
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -782,7 +820,8 @@ describe("DiaryService", () => {
           select: {
             id: true,
             firstName: true,
-            username: true
+            username: true,
+            avatarFileId: true
           }
         },
         items: {

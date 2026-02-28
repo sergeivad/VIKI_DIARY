@@ -27,9 +27,10 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - 10-minute merge window for the same author (UTC today)
   - unsupported content fallback message (stickers, documents, etc.)
 - Auto-tags (Stage 7):
-  - automatic tagging of diary entries via Claude Haiku (fire-and-forget)
+  - automatic tagging of diary entries via GPT-4o-mini (fire-and-forget)
 - Entry management (Stage 4):
-  - inline actions after new entry: change date / delete
+  - inline actions after new entry: edit text / change date / delete
+  - text editing via conversation with tag regeneration
   - quick event date change: yesterday / day before yesterday
   - manual event date input via conversation
   - delete flow with inline confirmation
@@ -39,6 +40,10 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - inline navigation (`◀️ Назад` / `Вперёд ▶️`)
   - `📎 Показать медиа` callback to send entry photos/videos
   - member notifications for newly created entries
+- Monthly summary (Stage 8):
+  - `/summary` command with monthly diary summary via GPT-4o
+  - inline month navigation (`◀️ Назад` / `Вперёд ▶️`)
+  - auto-selects previous month if within first 5 days
 - Testing and deploy readiness (Stage 6):
   - Dockerized app (`Dockerfile`, `.dockerignore`, `scripts/entrypoint.sh`)
   - Dokploy compose file (`docker-compose.dokploy.yml`)
@@ -48,10 +53,11 @@ Tech baseline: `Prisma 7`, `TypeScript strict`, `grammY + conversations`, `Postg
   - `user.service.ts` (`findOrCreateUser`)
   - `baby.service.ts` (`createBaby`, `getBabyByUser`, `getMembers`)
   - `invite.service.ts` (`acceptInvite`, `regenerateInvite`, `generateInvite`)
-  - `diary.service.ts` (`createEntry`, `addItemsToEntry`, `getOpenEntry`, `createOrAppend`, `getHistory`)
+  - `diary.service.ts` (`createEntry`, `addItemsToEntry`, `getOpenEntry`, `createOrAppend`, `getHistory`, `getEntriesForDateRange`, `updateEntryText`)
   - `notification.service.ts` (`notifyOtherMembers`)
   - `transcription.service.ts` (voice message transcription via Whisper)
-  - `tagging.service.ts` (auto-tagging via Claude Haiku)
+  - `tagging.service.ts` (auto-tagging via GPT-4o-mini)
+  - `summary.service.ts` (monthly summary generation via GPT-4o)
 - Webhook-only production mode with Express.
 
 ## Quick Start
@@ -136,8 +142,7 @@ Required app env:
 - `BOT_USERNAME`
 - `WEBHOOK_SECRET`
 - `WEBHOOK_URL` (must include webhook path, e.g. `https://bot.example.com/telegram/webhook`)
-- `OPENAI_API_KEY` (for voice transcription via Whisper)
-- `ANTHROPIC_API_KEY` (for auto-tagging via Claude Haiku)
+- `OPENAI_API_KEY` (for voice transcription, auto-tagging, and monthly summaries)
 
 Optional app env:
 

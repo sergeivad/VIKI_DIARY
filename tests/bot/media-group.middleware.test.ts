@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/utils/telegram.js", () => ({
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
+}));
+
 import { createMediaGroupMiddleware } from "../../src/bot/middleware/mediaGroup.js";
 
 function buildServices(hasDiary = true) {
@@ -117,7 +121,7 @@ describe("media group middleware", () => {
       mediaGroupId: "group-1",
       services,
       message: {
-        video: { file_id: "v1" }
+        video: { file_id: "v1", thumbnail: { file_id: "v1-thumb" } }
       }
     });
 
@@ -138,7 +142,7 @@ describe("media group middleware", () => {
       items: [
         { type: "photo", fileId: "p1-large", textContent: "group caption" },
         { type: "photo", fileId: "p2-large", textContent: null },
-        { type: "video", fileId: "v1", textContent: null }
+        { type: "video", fileId: "v1", thumbnailFileId: "v1-thumb", textContent: null }
       ]
     });
 
@@ -146,6 +150,7 @@ describe("media group middleware", () => {
     const replyArgs = (ctx1.reply as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(replyArgs[0]).toBe("✅ Записано на 22.02.2026");
     expect(replyArgs[1].reply_markup.inline_keyboard).toEqual([
+      [{ text: "✏️ Редактировать", callback_data: "entry:edit:entry-1" }],
       [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
       [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
     ]);

@@ -5,7 +5,8 @@ vi.mock("../../src/config/env.js", () => ({
 }));
 
 vi.mock("../../src/utils/telegram.js", () => ({
-  downloadTelegramFile: vi.fn()
+  downloadTelegramFile: vi.fn(),
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
 }));
 
 import { handleDiaryMessage } from "../../src/bot/handlers/diary.js";
@@ -86,6 +87,7 @@ describe("handleDiaryMessage", () => {
     const replyArgs = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(replyArgs[0]).toBe("✅ Записано на 22.02.2026");
     expect(replyArgs[1].reply_markup.inline_keyboard).toEqual([
+      [{ text: "✏️ Редактировать", callback_data: "entry:edit:entry-1" }],
       [{ text: "📅 Изменить дату", callback_data: "entry:date:entry-1" }],
       [{ text: "🗑 Удалить", callback_data: "entry:delete:entry-1" }]
     ]);
@@ -191,7 +193,7 @@ describe("handleDiaryMessage", () => {
     const ctx = {
       from: { id: 42, first_name: "Sergei", username: "sergei" },
       message: {
-        video: { file_id: "video-1" },
+        video: { file_id: "video-1", thumbnail: { file_id: "thumb-1" } },
         caption: "video caption"
       },
       services,
@@ -203,7 +205,7 @@ describe("handleDiaryMessage", () => {
     expect(services.diaryService.createOrAppend).toHaveBeenCalledWith({
       babyId: "baby-1",
       authorId: "user-1",
-      items: [{ type: "video", fileId: "video-1", textContent: "video caption" }]
+      items: [{ type: "video", fileId: "video-1", thumbnailFileId: "thumb-1", textContent: "video caption" }]
     });
     expect(services.notificationService.notifyOtherMembers).toHaveBeenCalledWith({
       babyId: "baby-1",

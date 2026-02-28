@@ -3,6 +3,7 @@ import { InlineKeyboard } from "grammy";
 import { InviteErrorCode, isInviteDomainError } from "../../services/invite.errors.js";
 import type { BotContext } from "../../types/bot.js";
 import { parseInviteStartPayload } from "../../utils/invite.js";
+import { getAvatarFileId } from "../../utils/telegram.js";
 
 const startKeyboard = new InlineKeyboard()
   .text("Создать дневник", "onboarding:create")
@@ -14,10 +15,12 @@ export async function handleStart(ctx: BotContext): Promise<void> {
     return;
   }
 
+  const avatarFileId = await getAvatarFileId(ctx.api, ctx.from.id);
   const user = await ctx.services.userService.findOrCreateUser({
     telegramId: BigInt(ctx.from.id),
     firstName: ctx.from.first_name,
-    username: ctx.from.username ?? null
+    username: ctx.from.username ?? null,
+    avatarFileId
   });
 
   const inviteToken = typeof ctx.match === "string" ? parseInviteStartPayload(ctx.match) : null;

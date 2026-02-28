@@ -1,7 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { webhookCallback } from "grammy";
 import OpenAI from "openai";
 
+import { createApiRouter } from "./api/router.js";
 import { createBot } from "./bot/bot.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
@@ -10,6 +13,7 @@ import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { NotificationService } from "./services/notification.service.js";
+import { SummaryService } from "./services/summary.service.js";
 import { TaggingService } from "./services/tagging.service.js";
 import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
@@ -24,6 +28,7 @@ const inviteService = new InviteService(prisma, env.BOT_USERNAME);
 const diaryService = new DiaryService(prisma);
 const transcriptionService = new TranscriptionService(openai);
 const taggingService = new TaggingService(openai, logger);
+const summaryService = new SummaryService(prisma, openai, logger);
 
 let bot!: ReturnType<typeof createBot>;
 
@@ -34,6 +39,7 @@ const services = {
   diaryService,
   transcriptionService,
   taggingService,
+  summaryService,
   notificationService: new NotificationService(
     babyService,
     async (telegramId, text) => {
@@ -43,6 +49,13 @@ const services = {
 };
 
 bot = createBot(services);
+
+const getFileUrl = async (fileId: string): Promise<string> => {
+  const file = await bot.api.getFile(fileId);
+  return `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${file.file_path}`;
+};
+
+const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl);
 
 app.get("/health/live", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });
@@ -60,6 +73,17 @@ app.get("/health/ready", async (_req, res) => {
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });
+});
+
+// REST API
+app.use("/api/v1", express.json(), apiRouter);
+
+// Mini App static files
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const miniappDist = path.join(__dirname, "..", "miniapp", "dist");
+app.use("/app", express.static(miniappDist));
+app.get("/app/{*splat}", (_req, res) => {
+  res.sendFile(path.join(miniappDist, "index.html"));
 });
 
 app.use(

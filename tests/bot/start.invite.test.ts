@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/utils/telegram.js", () => ({
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
+}));
+
 import { handleStart } from "../../src/bot/handlers/start.js";
 import { InviteDomainError, InviteErrorCode } from "../../src/services/invite.errors.js";
 

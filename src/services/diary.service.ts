@@ -10,22 +10,37 @@ export type DiaryItemInput = {
   type: "text" | "photo" | "video" | "voice";
   textContent?: string | null;
   fileId?: string | null;
-};
-
-export type DiaryEntryDTO = DiaryEntry & {
-  items: EntryItem[];
+  thumbnailFileId?: string | null;
 };
 
 export type HistoryEntryAuthor = {
   id: string;
   firstName: string;
   username: string | null;
+  avatarFileId: string | null;
 };
 
-export type HistoryEntryDTO = DiaryEntry & {
+export type DiaryEntryDTO = DiaryEntry & {
   author: HistoryEntryAuthor;
   items: EntryItem[];
 };
+
+/** @deprecated Use DiaryEntryDTO — now identical */
+export type HistoryEntryDTO = DiaryEntryDTO;
+
+const ENTRY_INCLUDE = {
+  author: {
+    select: {
+      id: true,
+      firstName: true,
+      username: true,
+      avatarFileId: true,
+    },
+  },
+  items: {
+    orderBy: { orderIndex: "asc" as const },
+  },
+} satisfies Prisma.DiaryEntryInclude;
 
 type CreateEntryInput = {
   babyId: string;
@@ -64,6 +79,19 @@ type GetEntryByIdInput = {
   actorId: string;
 };
 
+type GetEntriesForDateRangeInput = {
+  babyId: string;
+  actorId: string;
+  dateFrom: Date;
+  dateTo: Date;
+};
+
+type UpdateEntryTextInput = {
+  entryId: string;
+  actorId: string;
+  newText: string;
+};
+
 type GetHistoryInput = {
   babyId: string;
   actorId: string;
@@ -83,6 +111,7 @@ type NormalizedDiaryItem = {
   type: EntryItemTypeEnum;
   textContent: string | null;
   fileId: string | null;
+  thumbnailFileId: string | null;
 };
 
 type EntryAccessContext = {
@@ -121,7 +150,8 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
       return {
         type: EntryItemType.text,
         textContent,
-        fileId: null
+        fileId: null,
+        thumbnailFileId: null
       };
     }
 
@@ -142,7 +172,8 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
     return {
       type: typeMap[item.type as keyof typeof typeMap],
       textContent: normalizeText(item.textContent),
-      fileId
+      fileId,
+      thumbnailFileId: normalizeText(item.thumbnailFileId)
     };
   });
 }
@@ -181,13 +212,7 @@ export class DiaryService {
           gt: now
         }
       },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      },
+      include: ENTRY_INCLUDE,
       orderBy: {
         createdAt: "desc"
       }
@@ -215,17 +240,12 @@ export class DiaryService {
             type: item.type,
             textContent: item.textContent,
             fileId: item.fileId,
+            thumbnailFileId: item.thumbnailFileId,
             orderIndex: index
           }))
         }
       },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      }
+      include: ENTRY_INCLUDE,
     });
   }
 
@@ -259,6 +279,7 @@ export class DiaryService {
         type: item.type,
         textContent: item.textContent,
         fileId: item.fileId,
+        thumbnailFileId: item.thumbnailFileId,
         orderIndex: nextOrderIndex + index
       }))
     });
@@ -272,13 +293,7 @@ export class DiaryService {
 
     const updatedEntry = await tx.diaryEntry.findUnique({
       where: { id: input.entryId },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      }
+      include: ENTRY_INCLUDE,
     });
 
     if (!updatedEntry) {
@@ -432,13 +447,7 @@ export class DiaryService {
       const updated = await tx.diaryEntry.update({
         where: { id: input.entryId },
         data: { eventDate },
-        include: {
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
 
       return updated;
@@ -451,13 +460,7 @@ export class DiaryService {
 
       const entry = await tx.diaryEntry.findUnique({
         where: { id: input.entryId },
-        include: {
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
 
       if (!entry) {
@@ -490,20 +493,7 @@ export class DiaryService {
           },
           skip: (page - 1) * limit,
           take: limit,
-          include: {
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                username: true
-              }
-            },
-            items: {
-              orderBy: {
-                orderIndex: "asc"
-              }
-            }
-          }
+          include: ENTRY_INCLUDE,
         })
       ]);
 
@@ -523,6 +513,99 @@ export class DiaryService {
     await this.db.diaryEntry.update({
       where: { id: entryId },
       data: { tags }
+    });
+  }
+
+  async getEntriesForDateRange(input: GetEntriesForDateRangeInput): Promise<HistoryEntryDTO[]> {
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToBabyTx(tx, input.babyId, input.actorId);
+
+      return tx.diaryEntry.findMany({
+        where: {
+          babyId: input.babyId,
+          eventDate: {
+            gte: input.dateFrom,
+            lte: input.dateTo
+          }
+        },
+        orderBy: {
+          eventDate: "asc"
+        },
+        include: ENTRY_INCLUDE,
+      });
+    });
+  }
+
+  async updateEntryText(input: UpdateEntryTextInput): Promise<DiaryEntryDTO> {
+    const trimmed = input.newText.trim();
+    if (trimmed.length === 0) {
+      throw new DiaryDomainError(DiaryErrorCode.invalidItems, "Text must not be empty");
+    }
+
+    return this.db.$transaction(async (tx) => {
+      await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+
+      const textItems = await tx.entryItem.findMany({
+        where: {
+          entryId: input.entryId,
+          type: EntryItemType.text
+        },
+        orderBy: {
+          orderIndex: "asc"
+        }
+      });
+
+      if (textItems.length > 0) {
+        // Update first text item, delete the rest (consolidate)
+        await tx.entryItem.update({
+          where: { id: textItems[0].id },
+          data: { textContent: trimmed }
+        });
+
+        if (textItems.length > 1) {
+          await tx.entryItem.deleteMany({
+            where: {
+              id: { in: textItems.slice(1).map((i) => i.id) }
+            }
+          });
+        }
+      } else {
+        // No text items — shift existing items and insert at orderIndex 0
+        await tx.$queryRaw(
+          PrismaRuntime.sql`UPDATE "entry_items" SET "order_index" = "order_index" + 1 WHERE "entry_id" = ${input.entryId}::uuid`
+        );
+
+        await tx.entryItem.create({
+          data: {
+            entryId: input.entryId,
+            type: EntryItemType.text,
+            textContent: trimmed,
+            fileId: null,
+            orderIndex: 0
+          }
+        });
+      }
+
+      // Clear captions from media items — text is now consolidated in the text item
+      await tx.entryItem.updateMany({
+        where: {
+          entryId: input.entryId,
+          type: { not: EntryItemType.text },
+          textContent: { not: null },
+        },
+        data: { textContent: null },
+      });
+
+      const updated = await tx.diaryEntry.findUnique({
+        where: { id: input.entryId },
+        include: ENTRY_INCLUDE,
+      });
+
+      if (!updated) {
+        throw new DiaryDomainError(DiaryErrorCode.entryNotFound, "Entry not found");
+      }
+
+      return updated;
     });
   }
 

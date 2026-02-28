@@ -21,15 +21,19 @@ Telegram-бот для ведения дневника о малыше. Роди
 - Вежливый отказ на неподдерживаемый контент (стикеры, документы, геолокация и т.д.)
 
 ### Реализовано после MVP
-- Расшифровка голосовых через Whisper (v0.2)
-- Авто-теги через Claude Haiku (v0.2)
+- Расшифровка голосовых через Whisper + пост-обработка GPT-4o-mini (v0.2)
+- Авто-теги через GPT-4o-mini (v0.2)
+- Конспект за месяц `/summary` через GPT-4o (v0.3)
+- Редактирование текста записей (v0.3)
+- REST API с аутентификацией через Telegram initData (v0.4)
+- Telegram Mini App: лента, просмотр записей, создание (текст), редактирование, саммари (v0.4)
+- Media proxy для отображения фото/видео в Mini App (v0.4)
+- Команда `/app` для открытия Mini App (v0.4)
 
 ### Что НЕ реализовано (следующие итерации)
-- Редактирование записей
-- Конспект за месяц (`/summary`)
 - Фильтрация по тегам
 - Дублирование медиа в S3
-- Telegram Mini App
+- Загрузка медиа через Mini App
 - Экспорт в PDF
 - Несколько малышей у одного пользователя
 
@@ -68,7 +72,7 @@ Telegram-бот для ведения дневника о малыше. Роди
 - Текстовые сообщения
 - Фото (в том числе с caption — подпись сохраняется вместе с фото)
 - Видео (в том числе с caption)
-- Голосовые сообщения (транскрибируются через Whisper, макс 5 мин)
+- Голосовые сообщения (транскрибируются через Whisper + пост-обработка GPT-4o-mini, макс 5 мин)
 
 **Неподдерживаемый контент:** стикеры, документы, геолокация, контакты и прочее. Бот отвечает: «Пока я умею сохранять только текст, фото, видео и голосовые 😊»
 
@@ -77,6 +81,7 @@ Telegram-бот для ведения дневника о малыше. Роди
 **Склейка:** если с последней записи **того же автора** прошло меньше 10 минут — новое сообщение добавляется к ней. Бот отвечает: «✅ Добавлено к записи от 14:30». Сообщения разных авторов не склеиваются — каждый автор создаёт свои записи.
 
 **Новая запись:** если прошло больше 10 минут или предыдущая запись от другого автора — создаётся новая. Бот отвечает: «✅ Записано на 22.02.2026» + inline-кнопки:
+- ✏️ Редактировать
 - 📅 Изменить дату
 - 🗑 Удалить
 
@@ -127,67 +132,133 @@ Telegram-бот для ведения дневника о малыше. Роди
 ## Архитектура MVP
 
 ```
-Telegram Bot API
+Telegram Bot API (webhook)       Telegram Mini App
+       │                                │
+       ▼                                ▼
+   Express 5                      /app/* (статика)
        │
-       ▼
-   Bot Server (Node.js + grammY)
+       ├──► POST /telegram/webhook ──► grammY Bot
+       │       ├──► conversations (онбординг, ввод даты, редактирование)
+       │       ├──► media_group буфер (сбор пакетных фото/видео)
+       │       └──► formatters / keyboards / notifications
        │
-       ├──► grammY conversations (онбординг, ввод даты)
-       ├──► media_group буфер (сбор пакетных фото/видео)
-       ├──► Сервисный слой (бизнес-логика)
-       └──► PostgreSQL через Prisma
+       ├──► /api/v1/* ──► REST API (auth: Telegram initData HMAC)
+       │       ├──► baby, entries, media, summary routes
+       │       └──► error handler (domain errors → HTTP)
+       │
+       └──► Сервисный слой (общий для бота и API)
+                ├──► OpenAI API (Whisper, GPT-4o-mini, GPT-4o)
+                └──► PostgreSQL через Prisma 7
 ```
 
 ### Принцип: сервисный слой с первого дня
 
-Бизнес-логика живёт в сервисах, а не в хендлерах бота. Хендлеры — тонкие: парсят input из Telegram и вызывают сервисы. Это позволяет в будущем подключить REST API для Mini App, сайта или мобильного приложения без переписывания логики — API-роуты будут вызывать те же самые сервисы.
+Бизнес-логика живёт в сервисах, а не в хендлерах бота. Хендлеры — тонкие: парсят input из Telegram и вызывают сервисы. REST API роуты вызывают те же самые сервисы — ноль дублирования логики.
 
 ```
   Telegram ──► bot/handlers ──┐
                                ├──► services/ ──► db/
   Mini App ──► api/routes ────┘
-  (позже)
 ```
 
 ### Структура проекта
 
 ```
 src/
+  api/                  ← REST API слой (v0.4)
+    middleware/
+      auth.ts           ← валидация Telegram initData (HMAC-SHA256)
+      errorHandler.ts   ← маппинг доменных ошибок → HTTP-статусы
+    routes/
+      baby.routes.ts    ← GET /baby, /baby/members, /baby/invite
+      entries.routes.ts ← CRUD для записей дневника
+      media.routes.ts   ← прокси медиафайлов из Telegram
+      summary.routes.ts ← генерация месячного саммари
+    router.ts           ← фабрика API-роутера (монтируется на /api/v1)
+    types.ts            ← AuthedRequest, AuthenticatedActor
+
   bot/                  ← grammY: хендлеры, middleware, conversations
     handlers/
       start.ts          ← /start, онбординг
       diary.ts          ← приём текста, фото, видео
       history.ts        ← /history
+      historyCallbacks.ts ← навигация по истории
       invite.ts         ← /invite
-      callbacks.ts      ← inline-кнопки (дата, удаление, медиа)
+      app.ts            ← /app — открытие Mini App
+      summary.ts        ← /summary — конспект за месяц
+      summaryCallbacks.ts ← навигация по месяцам
+      entryCallbacks.ts ← inline-кнопки (дата, удаление, редактирование)
+      entryActionErrors.ts ← маппинг доменных ошибок
     middleware/
       mediaGroup.ts     ← буфер для media_group_id
     conversations/
       onboarding.ts     ← диалог создания дневника
       dateInput.ts      ← диалог ввода даты
+      editEntry.ts      ← диалог редактирования текста записи
+    formatters/
+      entry.ts          ← форматирование записей для отображения
+    keyboards/
+      entryActions.ts   ← клавиатура действий с записью
+      history.ts        ← клавиатура пагинации истории
+      summary.ts        ← клавиатура навигации по месяцам
+    notifications/
+      newEntry.ts       ← форматирование уведомлений о новых записях
     bot.ts              ← инициализация бота, подключение хендлеров
 
-  services/             ← бизнес-логика (не зависит от Telegram)
-    diary.service.ts    ← createEntry, addToEntry, deleteEntry, getHistory
+  services/             ← бизнес-логика (общая для бота и API)
+    diary.service.ts    ← createOrAppend, deleteEntry, getHistory, updateEntryText
+    diary.errors.ts     ← DiaryDomainError
     baby.service.ts     ← createBaby, getBabyByUser, getMembers
     user.service.ts     ← findOrCreateUser
     invite.service.ts   ← generateInvite, acceptInvite, regenerateInvite
+    invite.errors.ts    ← InviteDomainError
     notification.service.ts ← notifyMembers
-    transcription.service.ts ← расшифровка голосовых (Whisper)
-    tagging.service.ts   ← авто-теги (Claude Haiku)
+    transcription.service.ts ← расшифровка голосовых (Whisper + GPT-4o-mini)
+    transcription.errors.ts  ← TranscriptionError
+    tagging.service.ts       ← авто-теги (GPT-4o-mini)
+    summary.service.ts       ← конспект за месяц (GPT-4o)
+    summary.errors.ts        ← SummaryDomainError
 
   db/                   ← работа с базой
-    prisma.ts           ← Prisma client
-    schema.prisma       ← схема базы данных
-
-  api/                  ← REST API (добавить позже для Mini App)
-    routes/
-    middleware/
+    prisma.ts           ← Prisma client instance
+    client.ts           ← CJS→ESM bridge (реэкспорт энамов и PrismaClient)
 
   config/               ← конфиги, переменные окружения
-  utils/                ← хелперы (форматирование дат, генерация токенов)
+    env.ts              ← Zod-валидация env
+    logger.ts           ← Pino logger
 
-  index.ts              ← точка входа
+  types/                ← типы
+    bot.ts              ← BotContext, Services, BotConversation
+
+  utils/                ← хелперы
+    month.ts            ← работа с месяцами
+    telegram.ts         ← Telegram-утилиты
+
+  index.ts              ← точка входа (Express + API + Mini App + webhook + services)
+
+miniapp/                ← Telegram Mini App (Vite + React 19 + Tailwind v4)
+  src/
+    api/
+      client.ts         ← API-клиент с TMA-авторизацией
+      types.ts          ← TypeScript-типы (Baby, DiaryEntry, etc.)
+    components/
+      app-context.tsx   ← глобальное состояние, навигация, загрузка данных
+      feed-screen.tsx   ← лента записей с карточками и медиа
+      detail-screen.tsx ← полный просмотр записи с лайтбоксом
+      create-edit-screen.tsx ← создание (текст) и редактирование
+      summary-screen.tsx    ← месячный AI-саммари
+      bottom-tab-bar.tsx    ← нижняя навигация (3 вкладки)
+      telegram-header.tsx   ← шапка с именем малыша
+      snackbar.tsx          ← toast-уведомления
+    hooks/
+      useTelegram.ts    ← хук Telegram WebApp SDK (initData, BackButton, haptics)
+    lib/
+      format.ts         ← форматирование дат на русском
+      utils.ts          ← cn() утилита (clsx + tailwind-merge)
+  vite.config.ts        ← base: "/app/", прокси /api → :3000
+
+prisma/
+  schema.prisma         ← схема базы данных
 ```
 
 ### Сервисы — контракты
@@ -196,12 +267,14 @@ src/
 
 ```typescript
 // diary.service.ts
-createEntry(babyId, authorId, items[]) → Entry
-addItemsToEntry(entryId, items[]) → Entry
-deleteEntry(entryId) → void
-getHistory(babyId, page, limit) → { entries[], total }
-updateEventDate(entryId, date) → Entry
-getOpenEntry(babyId, authorId) → Entry | null  // для склейки
+createOrAppend(input) → Entry           // создание или склейка в merge window (с row-level locking)
+getEntryById(input) → Entry             // получение записи с проверкой доступа
+deleteEntry({ entryId, actorId }) → void
+getHistory(input) → { entries[], total, page, limit, totalPages }
+updateEventDate({ entryId, actorId, eventDate }) → Entry
+updateEntryText(input) → Entry          // редактирование текста + перегенерация тегов
+getEntriesForDateRange(input) → Entry[] // для /summary
+updateTags(entryId, tags) → void
 
 // baby.service.ts
 createBaby(name, birthDate, ownerUserId) → Baby
@@ -215,6 +288,15 @@ regenerateInvite(babyId) → newToken
 
 // notification.service.ts
 notifyOtherMembers(babyId, excludeUserId, message) → void
+
+// transcription.service.ts
+transcribe(fileUrl) → string            // Whisper + GPT-4o-mini пост-обработка
+
+// tagging.service.ts
+generateTags(text) → string[]           // GPT-4o-mini
+
+// summary.service.ts
+generateSummary(input) → string         // GPT-4o
 ```
 
 ---
@@ -254,7 +336,7 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 | baby_id | UUID | FK → babies |
 | author_id | UUID | FK → users |
 | event_date | DATE | Дата события (по умолчанию today) |
-| tags | TEXT[] | Авто-теги (Claude Haiku) |
+| tags | TEXT[] | Авто-теги (GPT-4o-mini) |
 | merge_window_until | TIMESTAMP | created_at + 10 мин |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
@@ -278,12 +360,19 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 
 | Компонент | Технология |
 |-----------|-----------|
-| Runtime | Node.js |
-| Bot framework | grammY |
-| Плагины grammY | conversations (онбординг, ввод даты) |
+| Runtime | Node.js 22 (ESM) |
+| Language | TypeScript 5.9 |
+| Bot framework | grammY 1.40 |
+| Плагины grammY | conversations 2.1 (онбординг, ввод даты, редактирование) |
+| Web framework | Express 5 |
 | База данных | PostgreSQL |
-| ORM | Prisma |
-| Хостинг | VPS |
+| ORM | Prisma 7 |
+| AI | OpenAI SDK (Whisper, GPT-4o-mini, GPT-4o) |
+| Валидация | Zod 4 |
+| Тесты | Vitest 4 |
+| Mini App | Vite + React 19 + Tailwind v4 + shadcn/ui |
+| Telegram SDK | @telegram-apps/sdk (initData, BackButton, HapticFeedback) |
+| Хостинг | Dokploy + Traefik, домен viki.deazmont.ru |
 
 ---
 
@@ -294,6 +383,8 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 | `/start` | Онбординг: создание дневника или вход по инвайту |
 | `/history` | Просмотр записей с пагинацией |
 | `/invite` | Показать/перегенерировать инвайт-ссылку (только owner) |
+| `/summary` | Конспект за месяц (генерация через GPT-4o, навигация по месяцам) |
+| `/app` | Открыть Telegram Mini App для красивого просмотра дневника |
 
 ---
 
@@ -345,8 +436,8 @@ notifyOtherMembers(babyId, excludeUserId, message) → void
 
 | Версия | Фичи |
 |--------|-------|
-| ~~v0.2~~ | ~~Расшифровка голосовых (Whisper), авто-теги (Claude Haiku)~~ — Done |
-| v0.3 | Конспект за месяц (`/summary`), редактирование записей |
-| v0.4 | REST API + Telegram Mini App для красивого просмотра |
-| v0.5 | Фильтрация по тегам, дублирование медиа в S3 |
+| ~~v0.2~~ | ~~Расшифровка голосовых (Whisper + GPT-4o-mini), авто-теги (GPT-4o-mini)~~ — Done |
+| ~~v0.3~~ | ~~Конспект за месяц (`/summary` через GPT-4o), редактирование записей~~ — Done |
+| ~~v0.4~~ | ~~REST API + Telegram Mini App для красивого просмотра~~ — Done |
+| v0.5 | Фильтрация по тегам, дублирование медиа в S3, загрузка медиа в Mini App |
 | v1.0 | Экспорт в PDF, несколько малышей у одного пользователя |

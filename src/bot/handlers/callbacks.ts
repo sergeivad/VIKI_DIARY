@@ -1,6 +1,7 @@
 import type { BotContext } from "../../types/bot.js";
 import { formatRuDate, toUtcDateOnly } from "../../utils/date.js";
 import { mapDiaryActionErrorMessage } from "./entryActionErrors.js";
+import { getHistoryTextContent } from "../formatters/entry.js";
 import {
   buildDateSelectionKeyboard,
   buildDeleteConfirmationKeyboard,
@@ -11,6 +12,7 @@ import {
 } from "../keyboards/entryActions.js";
 
 type ParsedEntryCallback =
+  | { type: "edit"; entryId: string }
   | { type: "open-date-menu"; entryId: string }
   | { type: "quick-date"; entryId: string; kind: typeof QUICK_DATE_YESTERDAY | typeof QUICK_DATE_DAY_BEFORE }
   | { type: "manual-date"; entryId: string }
@@ -23,6 +25,10 @@ function parseEntryCallbackData(data: string): ParsedEntryCallback | null {
   const parts = data.split(":");
   if (parts[0] !== ENTRY_CALLBACK_PREFIX) {
     return null;
+  }
+
+  if (parts[1] === "edit" && parts.length === 3) {
+    return { type: "edit", entryId: parts[2] };
   }
 
   if (parts[1] === "date") {
@@ -120,6 +126,35 @@ export async function handleEntryCallbacks(ctx: BotContext): Promise<void> {
   }
 
   try {
+    if (action.type === "edit") {
+      const sourceChatId = ctx.chat?.id;
+      const sourceMessageId = ctx.callbackQuery?.message?.message_id;
+      if (!sourceChatId || typeof sourceMessageId !== "number") {
+        await ctx.answerCallbackQuery({
+          text: "Не удалось открыть редактирование.",
+          show_alert: true
+        });
+        return;
+      }
+
+      const entry = await ctx.services.diaryService.getEntryById({
+        entryId: action.entryId,
+        actorId
+      });
+
+      const currentText = getHistoryTextContent(entry.items);
+
+      await ctx.conversation.enter("editEntryConversation", {
+        entryId: action.entryId,
+        actorId,
+        currentText,
+        sourceChatId,
+        sourceMessageId
+      });
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
     if (action.type === "open-date-menu") {
       await ctx.editMessageText("📅 Выберите дату события:", {
         reply_markup: buildDateSelectionKeyboard(action.entryId)
