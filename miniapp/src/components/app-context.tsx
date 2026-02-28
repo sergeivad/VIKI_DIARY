@@ -169,7 +169,11 @@ export function AppProvider({ ready }: { ready: boolean }) {
   }
 
   function updateEntry(updated: DiaryEntry) {
-    setEntries((e) => e.map((entry) => (entry.id === updated.id ? updated : entry)));
+    setEntries((prev) => {
+      const next = prev.map((entry) => (entry.id === updated.id ? updated : entry));
+      entriesRef.current = next;
+      return next;
+    });
   }
 
   function deleteEntryLocal(id: string) {
