@@ -75,6 +75,7 @@ export function AppProvider({ ready }: { ready: boolean }) {
     (next: Screen) => {
       setHistory((h) => [...h, screen]);
       setScreen(next);
+      window.scrollTo(0, 0);
     },
     [screen],
   );
@@ -99,6 +100,7 @@ export function AppProvider({ ready }: { ready: boolean }) {
       setScreen({ type: "feed" });
       return [];
     });
+    window.scrollTo(0, 0);
   }, []);
 
   const refreshEntries = useCallback(async () => {
