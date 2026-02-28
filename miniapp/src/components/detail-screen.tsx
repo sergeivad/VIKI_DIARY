@@ -97,11 +97,14 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const textItem = entry.items.find((m) => m.type === "text");
   const voiceItem = entry.items.find((m) => m.type === "voice");
   const photos = entry.items.filter((m) => m.type === "photo");
   const videos = entry.items.filter((m) => m.type === "video");
-  const displayText = textItem?.textContent || voiceItem?.textContent || null;
+  // Collect text from all items: text entries, voice transcriptions, photo/video captions
+  const displayText = entry.items
+    .map((m) => m.textContent?.trim())
+    .filter(Boolean)
+    .join("\n\n") || null;
 
   const photoUrls = photos
     .filter((p) => p.fileId)

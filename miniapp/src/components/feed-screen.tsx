@@ -10,9 +10,11 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
   const photos = entry.items.filter((m) => m.type === "photo" || m.type === "video");
   const voiceItem = entry.items.find((m) => m.type === "voice");
   const hasVoice = !!voiceItem;
-  const textItem = entry.items.find((m) => m.type === "text");
-  // Display text: prefer explicit text entry, fallback to voice transcription
-  const displayText = textItem?.textContent || voiceItem?.textContent || null;
+  // Collect text from all items: text entries, voice transcriptions, photo/video captions
+  const displayText = entry.items
+    .map((m) => m.textContent?.trim())
+    .filter(Boolean)
+    .join("\n\n") || null;
   const showCount = Math.min(photos.length, 4);
   const extraCount = photos.length - 4;
 
