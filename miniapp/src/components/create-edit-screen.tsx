@@ -3,7 +3,7 @@ import { useApp } from "./app-context";
 import { TelegramHeader } from "./telegram-header";
 import { api } from "@/api/client";
 import type { DiaryEntry } from "@/api/types";
-import { Calendar, Loader2, Info } from "lucide-react";
+import { Calendar, Loader2, Info, Video } from "lucide-react";
 
 function DatePicker({
   value,
@@ -214,18 +214,24 @@ export function EditScreen({ entry }: { entry: DiaryEntry }) {
               Прикреплённые файлы
             </label>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {mediaItems.map((media) =>
-                media.fileId ? (
+              {mediaItems.map((media) => {
+                const thumbId = media.type === "video" ? media.thumbnailFileId : media.fileId;
+                return thumbId ? (
                   <div key={media.id} className="relative shrink-0 h-20 w-20 rounded-xl overflow-hidden bg-muted opacity-70">
                     <img
-                      src={api.mediaUrl(media.fileId)}
+                      src={api.mediaUrl(thumbId)}
                       alt=""
                       className="absolute inset-0 w-full h-full object-cover"
                       loading="lazy"
                     />
+                    {media.type === "video" && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Video className="h-5 w-5 text-white drop-shadow" />
+                      </div>
+                    )}
                   </div>
-                ) : null,
-              )}
+                ) : null;
+              })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Медиафайлы нельзя изменить в этой версии
