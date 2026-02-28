@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import type { DiaryEntry, Baby } from "@/api/types";
 import { api } from "@/api/client";
 import { FeedScreen } from "./feed-screen";
@@ -65,6 +65,8 @@ export function AppProvider({ ready }: { ready: boolean }) {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState<string | null>(null);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
 
   const activeTab =
     screen.type === "summary" ? "summary" : screen.type === "create" ? "create" : "feed";
@@ -81,7 +83,17 @@ export function AppProvider({ ready }: { ready: boolean }) {
     setHistory((h) => {
       const prev = h[h.length - 1];
       if (prev) {
-        setScreen(prev);
+        // Resolve stale entry in history with fresh data
+        if ((prev.type === "detail" || prev.type === "edit") ) {
+          const fresh = entriesRef.current.find((e) => e.id === prev.entry.id);
+          if (fresh) {
+            setScreen({ ...prev, entry: fresh });
+          } else {
+            setScreen(prev);
+          }
+        } else {
+          setScreen(prev);
+        }
         return h.slice(0, -1);
       }
       setScreen({ type: "feed" });
