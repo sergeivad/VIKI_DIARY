@@ -13,10 +13,6 @@ export type DiaryItemInput = {
   thumbnailFileId?: string | null;
 };
 
-export type DiaryEntryDTO = DiaryEntry & {
-  items: EntryItem[];
-};
-
 export type HistoryEntryAuthor = {
   id: string;
   firstName: string;
@@ -24,10 +20,27 @@ export type HistoryEntryAuthor = {
   avatarFileId: string | null;
 };
 
-export type HistoryEntryDTO = DiaryEntry & {
+export type DiaryEntryDTO = DiaryEntry & {
   author: HistoryEntryAuthor;
   items: EntryItem[];
 };
+
+/** @deprecated Use DiaryEntryDTO — now identical */
+export type HistoryEntryDTO = DiaryEntryDTO;
+
+const ENTRY_INCLUDE = {
+  author: {
+    select: {
+      id: true,
+      firstName: true,
+      username: true,
+      avatarFileId: true,
+    },
+  },
+  items: {
+    orderBy: { orderIndex: "asc" as const },
+  },
+} satisfies Prisma.DiaryEntryInclude;
 
 type CreateEntryInput = {
   babyId: string;
@@ -199,13 +212,7 @@ export class DiaryService {
           gt: now
         }
       },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      },
+      include: ENTRY_INCLUDE,
       orderBy: {
         createdAt: "desc"
       }
@@ -238,13 +245,7 @@ export class DiaryService {
           }))
         }
       },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      }
+      include: ENTRY_INCLUDE,
     });
   }
 
@@ -292,13 +293,7 @@ export class DiaryService {
 
     const updatedEntry = await tx.diaryEntry.findUnique({
       where: { id: input.entryId },
-      include: {
-        items: {
-          orderBy: {
-            orderIndex: "asc"
-          }
-        }
-      }
+      include: ENTRY_INCLUDE,
     });
 
     if (!updatedEntry) {
@@ -452,13 +447,7 @@ export class DiaryService {
       const updated = await tx.diaryEntry.update({
         where: { id: input.entryId },
         data: { eventDate },
-        include: {
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
 
       return updated;
@@ -471,13 +460,7 @@ export class DiaryService {
 
       const entry = await tx.diaryEntry.findUnique({
         where: { id: input.entryId },
-        include: {
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
 
       if (!entry) {
@@ -510,21 +493,7 @@ export class DiaryService {
           },
           skip: (page - 1) * limit,
           take: limit,
-          include: {
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                username: true,
-                avatarFileId: true
-              }
-            },
-            items: {
-              orderBy: {
-                orderIndex: "asc"
-              }
-            }
-          }
+          include: ENTRY_INCLUDE,
         })
       ]);
 
@@ -562,21 +531,7 @@ export class DiaryService {
         orderBy: {
           eventDate: "asc"
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              firstName: true,
-              username: true,
-              avatarFileId: true
-            }
-          },
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
     });
   }
@@ -633,13 +588,7 @@ export class DiaryService {
 
       const updated = await tx.diaryEntry.findUnique({
         where: { id: input.entryId },
-        include: {
-          items: {
-            orderBy: {
-              orderIndex: "asc"
-            }
-          }
-        }
+        include: ENTRY_INCLUDE,
       });
 
       if (!updated) {

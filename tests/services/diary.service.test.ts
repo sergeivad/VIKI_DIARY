@@ -82,6 +82,14 @@ describe("DiaryService", () => {
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -115,6 +123,14 @@ describe("DiaryService", () => {
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -356,6 +372,14 @@ describe("DiaryService", () => {
         }
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
@@ -445,6 +469,14 @@ describe("DiaryService", () => {
         eventDate: new Date("2026-02-21T00:00:00.000Z")
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            username: true,
+            avatarFileId: true
+          }
+        },
         items: {
           orderBy: {
             orderIndex: "asc"
