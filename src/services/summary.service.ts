@@ -96,4 +96,38 @@ export class SummaryService {
       throw new SummaryDomainError(SummaryErrorCode.generationFailed, "Failed to generate summary");
     }
   }
+
+  async describePhotos(photoUrls: string[]): Promise<Map<string, string>> {
+    if (photoUrls.length === 0) return new Map();
+
+    const results = new Map<string, string>();
+
+    const promises = photoUrls.map(async (url) => {
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_tokens: 100,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Опиши что на фотографии одним предложением на русском." },
+                { type: "image_url", image_url: { url, detail: "low" } },
+              ],
+            },
+          ],
+        });
+
+        const description = response.choices[0]?.message?.content?.trim();
+        if (description) {
+          results.set(url, description);
+        }
+      } catch (error) {
+        this.log.warn({ url, err: error }, "Failed to describe photo, skipping");
+      }
+    });
+
+    await Promise.all(promises);
+    return results;
+  }
 }
