@@ -1,4 +1,11 @@
-import type { Baby, PaginatedEntries, DiaryEntry, SummaryResponse, Author } from "./types";
+import type {
+  Author,
+  Baby,
+  DiaryEntry,
+  PaginatedEntries,
+  SummaryResponse,
+  UploadResult,
+} from "./types";
 
 class ApiClient {
   private baseUrl: string;
@@ -45,10 +52,45 @@ class ApiClient {
     return this.request(`/entries/${entryId}`);
   }
 
-  createEntry(babyId: string, text: string, eventDate?: string): Promise<DiaryEntry> {
+  async uploadFile(file: File): Promise<UploadResult> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${this.baseUrl}/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `tma ${this.initData}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `Upload failed: ${res.status}`);
+    }
+
+    return res.json();
+  }
+
+  createEntry(
+    babyId: string,
+    text: string,
+    eventDate?: string,
+    media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>,
+  ): Promise<DiaryEntry> {
     return this.request("/entries", {
       method: "POST",
-      body: JSON.stringify({ babyId, text, eventDate }),
+      body: JSON.stringify({ babyId, text: text || undefined, eventDate, media }),
+    });
+  }
+
+  addMediaToEntry(
+    entryId: string,
+    media: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>,
+  ): Promise<DiaryEntry> {
+    return this.request(`/entries/${entryId}/media`, {
+      method: "POST",
+      body: JSON.stringify({ media }),
     });
   }
 
@@ -91,7 +133,35 @@ class ApiClient {
     });
   }
 
-  mediaUrl(fileId: string): string {
+  mediaUrl(
+    item: {
+      fileId: string | null;
+      s3Key: string | null;
+      thumbnailFileId?: string | null;
+      thumbnailS3Key?: string | null;
+    },
+    thumbnail = false,
+  ): string {
+    if (thumbnail) {
+      if (item.thumbnailS3Key) {
+        return `${this.baseUrl}/media/${encodeURIComponent(item.thumbnailS3Key)}?source=s3`;
+      }
+      if (item.thumbnailFileId) {
+        return `${this.baseUrl}/media/${encodeURIComponent(item.thumbnailFileId)}`;
+      }
+    }
+
+    if (item.s3Key) {
+      return `${this.baseUrl}/media/${encodeURIComponent(item.s3Key)}?source=s3`;
+    }
+    if (item.fileId) {
+      return `${this.baseUrl}/media/${encodeURIComponent(item.fileId)}`;
+    }
+
+    return "";
+  }
+
+  mediaUrlByFileId(fileId: string): string {
     return `${this.baseUrl}/media/${encodeURIComponent(fileId)}`;
   }
 }

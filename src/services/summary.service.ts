@@ -12,17 +12,27 @@ export type SummaryInput = {
   entriesText: string[];
 };
 
-const SYSTEM_PROMPT = `Ты — помощник для родителей, пишущих детский дневник.
-Тебе дают дневниковые записи за один месяц. Составь тёплый, родительский конспект месяца на русском языке.
+export type SummaryPhotoInput = {
+  key: string;
+  mimeType: string;
+  data: Buffer;
+};
 
-Правила:
-- Пиши от лица наблюдателя, обращайся к малышу по имени
-- Выдели ключевые вехи и «первые разы»
-- Отметь паттерны: сон, еда, прогулки, настроение
-- Упомяни яркие эмоциональные моменты
-- Не выдумывай то, чего нет в записях
-- Формат: связный текст с абзацами, без заголовков и списков
-- Длина: 300–800 слов`;
+const SYSTEM_PROMPT = `Ты — помощник для детского дневника.
+Тебе дают записи и описания фотографий за один месяц. Составь конспект месяца.
+
+ФОРМАТ (строго):
+1. Заголовок: «{месяц} {год} — {имя}, {возраст}»
+2. Блок «Вехи» — буллеты с эмодзи, только конкретные «первые разы» и достижения с датами
+3. Блок «Ритмы» — 2-3 буллета про паттерны (сон, еда, прогулки), только если есть данные
+4. Тёплая концовка — 2-3 предложения, мягкое обобщение месяца
+
+ПРАВИЛА:
+- Каждый факт должен быть подтверждён конкретной записью. НЕ додумывай, НЕ обобщай то, чего нет
+- Если в записях упомянуто что-то один раз — пиши как единичное событие, не превращай в паттерн
+- Описания фото используй для контекста (место, обстановка), но не выдумывай эмоции по фото
+- Длина: 200-500 слов
+- Язык: русский, тёплый но лаконичный`;
 
 export class SummaryService {
   constructor(
@@ -65,7 +75,7 @@ export class SummaryService {
     try {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 1500,
+        max_tokens: 1000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage }
@@ -91,5 +101,42 @@ export class SummaryService {
       this.log.error({ err: error }, "Summary generation failed");
       throw new SummaryDomainError(SummaryErrorCode.generationFailed, "Failed to generate summary");
     }
+  }
+
+  async describePhotos(photos: SummaryPhotoInput[]): Promise<Map<string, string>> {
+    if (photos.length === 0) return new Map();
+
+    const results = new Map<string, string>();
+
+    const promises = photos.map(async (photo) => {
+      try {
+        const encodedData = photo.data.toString("base64");
+        const imageUrl = `data:${photo.mimeType};base64,${encodedData}`;
+
+        const response = await this.openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_tokens: 100,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Опиши что на фотографии одним предложением на русском." },
+                { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+              ],
+            },
+          ],
+        });
+
+        const description = response.choices[0]?.message?.content?.trim();
+        if (description) {
+          results.set(photo.key, description);
+        }
+      } catch (error) {
+        this.log.warn({ photoKey: photo.key, err: error }, "Failed to describe photo, skipping");
+      }
+    });
+
+    await Promise.all(promises);
+    return results;
   }
 }

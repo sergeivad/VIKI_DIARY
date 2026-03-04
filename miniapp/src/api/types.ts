@@ -18,6 +18,8 @@ export interface EntryItem {
   textContent: string | null;
   fileId: string | null;
   thumbnailFileId: string | null;
+  s3Key: string | null;
+  thumbnailS3Key: string | null;
   orderIndex: number;
 }
 
@@ -47,4 +49,12 @@ export interface SummaryResponse {
   month: number;
   year: number;
   createdAt: string;
+}
+
+export interface UploadResult {
+  s3Key: string;
+  thumbnailS3Key: string | null;
+  mimeType: string;
+  size: number;
+  type: "photo" | "video";
 }

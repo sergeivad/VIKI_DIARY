@@ -13,10 +13,13 @@ import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { NotificationService } from "./services/notification.service.js";
+import { S3Service } from "./services/s3.service.js";
 import { SummaryService } from "./services/summary.service.js";
 import { TaggingService } from "./services/tagging.service.js";
+import { ThumbnailService } from "./services/thumbnail.service.js";
 import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
+import { downloadTelegramFileWithMeta } from "./utils/telegram.js";
 
 const app = express();
 
@@ -29,6 +32,20 @@ const diaryService = new DiaryService(prisma);
 const transcriptionService = new TranscriptionService(openai);
 const taggingService = new TaggingService(openai, logger);
 const summaryService = new SummaryService(prisma, openai, logger);
+const s3Service =
+  env.S3_ENDPOINT &&
+  env.S3_BUCKET &&
+  env.S3_ACCESS_KEY &&
+  env.S3_SECRET_KEY
+    ? new S3Service({
+        endpoint: env.S3_ENDPOINT,
+        bucket: env.S3_BUCKET,
+        accessKey: env.S3_ACCESS_KEY,
+        secretKey: env.S3_SECRET_KEY,
+        region: env.S3_REGION,
+      })
+    : null;
+const thumbnailService = new ThumbnailService();
 
 let bot!: ReturnType<typeof createBot>;
 
@@ -40,6 +57,8 @@ const services = {
   transcriptionService,
   taggingService,
   summaryService,
+  s3Service,
+  thumbnailService,
   notificationService: new NotificationService(
     babyService,
     async (telegramId, text) => {
@@ -55,7 +74,15 @@ const getFileUrl = async (fileId: string): Promise<string> => {
   return `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${file.file_path}`;
 };
 
-const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl);
+const getTelegramPhotoData = async (fileId: string): Promise<{ data: Buffer; mimeType: string }> => {
+  const file = await downloadTelegramFileWithMeta(bot.api, env.BOT_TOKEN, fileId);
+  return {
+    data: file.data,
+    mimeType: file.mimeType
+  };
+};
+
+const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl, getTelegramPhotoData);
 
 app.get("/health/live", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });

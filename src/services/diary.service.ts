@@ -11,6 +11,8 @@ export type DiaryItemInput = {
   textContent?: string | null;
   fileId?: string | null;
   thumbnailFileId?: string | null;
+  s3Key?: string | null;
+  thumbnailS3Key?: string | null;
 };
 
 export type HistoryEntryAuthor = {
@@ -52,6 +54,7 @@ type CreateEntryInput = {
 
 type AddItemsToEntryInput = {
   entryId: string;
+  actorId?: string;
   items: DiaryItemInput[];
   now?: Date;
 };
@@ -112,6 +115,8 @@ type NormalizedDiaryItem = {
   textContent: string | null;
   fileId: string | null;
   thumbnailFileId: string | null;
+  s3Key: string | null;
+  thumbnailS3Key: string | null;
 };
 
 type EntryAccessContext = {
@@ -151,15 +156,18 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
         type: EntryItemType.text,
         textContent,
         fileId: null,
-        thumbnailFileId: null
+        thumbnailFileId: null,
+        s3Key: null,
+        thumbnailS3Key: null
       };
     }
 
     const fileId = normalizeText(item.fileId);
-    if (!fileId) {
+    const s3Key = normalizeText(item.s3Key);
+    if (!fileId && !s3Key) {
       throw new DiaryDomainError(
         DiaryErrorCode.invalidItems,
-        "Media item must include file id"
+        "Media item must include file id or s3 key"
       );
     }
 
@@ -173,7 +181,9 @@ function normalizeItems(items: DiaryItemInput[]): NormalizedDiaryItem[] {
       type: typeMap[item.type as keyof typeof typeMap],
       textContent: normalizeText(item.textContent),
       fileId,
-      thumbnailFileId: normalizeText(item.thumbnailFileId)
+      thumbnailFileId: normalizeText(item.thumbnailFileId),
+      s3Key,
+      thumbnailS3Key: normalizeText(item.thumbnailS3Key)
     };
   });
 }
@@ -241,6 +251,8 @@ export class DiaryService {
             textContent: item.textContent,
             fileId: item.fileId,
             thumbnailFileId: item.thumbnailFileId,
+            s3Key: item.s3Key,
+            thumbnailS3Key: item.thumbnailS3Key,
             orderIndex: index
           }))
         }
@@ -280,6 +292,8 @@ export class DiaryService {
         textContent: item.textContent,
         fileId: item.fileId,
         thumbnailFileId: item.thumbnailFileId,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key,
         orderIndex: nextOrderIndex + index
       }))
     });
@@ -392,13 +406,17 @@ export class DiaryService {
     const now = input.now ?? new Date();
     const normalizedItems = normalizeItems(input.items);
 
-    return this.db.$transaction((tx) =>
-      this.addItemsToEntryTx(tx, {
+    return this.db.$transaction(async (tx) => {
+      if (input.actorId) {
+        await this.assertActorHasAccessToEntryTx(tx, input.entryId, input.actorId);
+      }
+
+      return this.addItemsToEntryTx(tx, {
         entryId: input.entryId,
         normalizedItems,
         now
-      })
-    );
+      });
+    });
   }
 
   async createOrAppend(

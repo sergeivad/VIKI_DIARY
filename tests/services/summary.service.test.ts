@@ -7,7 +7,7 @@ import { SummaryErrorCode } from "../../src/services/summary.errors.js";
 
 import type { PrismaClient } from "@prisma/client";
 
-const mockLogger = { debug: vi.fn(), error: vi.fn() } as unknown as Logger;
+const mockLogger = { debug: vi.fn(), error: vi.fn(), warn: vi.fn() } as unknown as Logger;
 const mockPrisma = {} as unknown as PrismaClient;
 
 function createMockOpenAI(
@@ -90,5 +90,68 @@ describe("SummaryService", () => {
     expect(call.model).toBe("gpt-4o");
     expect(call.messages[1].content).toContain("Вика");
     expect(call.messages[1].content).toContain("02.2026");
+  });
+
+  describe("describePhotos", () => {
+    it("returns descriptions mapped by key", async () => {
+      const openai = {
+        chat: {
+          completions: {
+            create: vi.fn()
+              .mockResolvedValueOnce(chatResponse("Малыш на качелях в парке"))
+              .mockResolvedValueOnce(chatResponse("Ребёнок ест кашу за столиком"))
+          }
+        }
+      } as unknown as OpenAI;
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhotos([
+        { key: "photo-1", mimeType: "image/jpeg", data: Buffer.from("photo-1-data") },
+        { key: "photo-2", mimeType: "image/png", data: Buffer.from("photo-2-data") },
+      ]);
+
+      expect(result).toEqual(new Map([
+        ["photo-1", "Малыш на качелях в парке"],
+        ["photo-2", "Ребёнок ест кашу за столиком"],
+      ]));
+
+      const create = openai.chat.completions.create as ReturnType<typeof vi.fn>;
+      expect(create).toHaveBeenCalledTimes(2);
+      // Verify vision model and detail:low
+      const call = create.mock.calls[0][0];
+      expect(call.model).toBe("gpt-4o-mini");
+      expect(call.messages[0].content[1].image_url.detail).toBe("low");
+      expect(call.messages[0].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
+    });
+
+    it("returns empty map for empty input", async () => {
+      const openai = createMockOpenAI(chatResponse("irrelevant"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhotos([]);
+      expect(result).toEqual(new Map());
+    });
+
+    it("skips failed photo descriptions and logs warning", async () => {
+      const openai = {
+        chat: {
+          completions: {
+            create: vi.fn()
+              .mockResolvedValueOnce(chatResponse("Малыш спит"))
+              .mockRejectedValueOnce(new Error("API error"))
+          }
+        }
+      } as unknown as OpenAI;
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhotos([
+        { key: "ok", mimeType: "image/jpeg", data: Buffer.from("ok-data") },
+        { key: "fail", mimeType: "image/jpeg", data: Buffer.from("fail-data") },
+      ]);
+
+      expect(result.size).toBe(1);
+      expect(result.get("ok")).toBe("Малыш спит");
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
   });
 });

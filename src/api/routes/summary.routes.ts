@@ -2,14 +2,36 @@ import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { BabyService } from "../../services/baby.service.js";
 import type { DiaryService } from "../../services/diary.service.js";
-import type { SummaryService } from "../../services/summary.service.js";
+import type { S3Service } from "../../services/s3.service.js";
+import type { SummaryPhotoInput, SummaryService } from "../../services/summary.service.js";
 import type { AuthedRequest } from "../types.js";
 import { getMonthDateRange } from "../../utils/month.js";
+
+type GetTelegramPhotoData = (fileId: string) => Promise<{ data: Buffer; mimeType: string }>;
+
+function getPhotoKey(item: { fileId: string | null; s3Key: string | null }): string | null {
+  if (item.fileId) {
+    return `file:${item.fileId}`;
+  }
+
+  if (item.s3Key) {
+    return `s3:${item.s3Key}`;
+  }
+
+  return null;
+}
+
+function getItemS3Key(item: unknown): string | null {
+  const value = (item as { s3Key?: unknown }).s3Key;
+  return typeof value === "string" ? value : null;
+}
 
 export function createSummaryRouter(
   babyService: BabyService,
   diaryService: DiaryService,
   summaryService: SummaryService,
+  getTelegramPhotoData: GetTelegramPhotoData,
+  s3Service: S3Service | null,
 ): Router {
   const router = Router();
 
@@ -73,13 +95,82 @@ export function createSummaryRouter(
         dateTo,
       });
 
+      const uniquePhotos = new Map<string, { fileId: string | null; s3Key: string | null }>();
+      entries.forEach((entry) => {
+        for (const item of entry.items) {
+          if (item.type !== "photo") {
+            continue;
+          }
+
+          const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+          if (!key) {
+            continue;
+          }
+
+          uniquePhotos.set(key, { fileId: item.fileId, s3Key: getItemS3Key(item) });
+        }
+      });
+
+      const photoInputs = (await Promise.all(
+        [...uniquePhotos.entries()].map(async ([key, source]): Promise<SummaryPhotoInput | null> => {
+          try {
+            if (source.fileId) {
+              const telegramPhoto = await getTelegramPhotoData(source.fileId);
+              return {
+                key,
+                mimeType: telegramPhoto.mimeType,
+                data: telegramPhoto.data,
+              };
+            }
+
+            if (source.s3Key && s3Service) {
+              const s3Photo = await s3Service.getObjectData(source.s3Key);
+              return {
+                key,
+                mimeType: s3Photo.mimeType ?? "image/jpeg",
+                data: s3Photo.data,
+              };
+            }
+
+            return null;
+          } catch {
+            return null;
+          }
+        }),
+      )).filter((item): item is SummaryPhotoInput => item !== null);
+
+      const photoDescriptions = photoInputs.length > 0
+        ? await summaryService.describePhotos(photoInputs)
+        : new Map<string, string>();
+
+      // Build enriched entries text
       const entriesText = entries.map((entry) => {
         const date = entry.eventDate.toISOString().slice(0, 10);
         const textContent = entry.items
           .map((item) => item.textContent)
           .filter(Boolean)
           .join(" ");
-        return `[${date}] ${entry.author.firstName}: ${textContent}`;
+
+        const photoDescs = entry.items
+          .filter((item) => item.type === "photo")
+          .map((item) => {
+            const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+            if (!key) {
+              return null;
+            }
+
+            const description = photoDescriptions.get(key);
+            return description ? `[Фото: ${description}]` : null;
+          })
+          .filter((item): item is string => item !== null);
+
+        const parts = [
+          `[${date}] ${entry.author.firstName}: ${textContent}`,
+        ];
+        if (photoDescs.length > 0) {
+          parts.push(photoDescs.join(" "));
+        }
+        return parts.join(" ");
       });
 
       const text = await summaryService.generateSummary({

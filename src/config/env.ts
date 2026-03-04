@@ -16,6 +16,11 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is required"),
   ANTHROPIC_API_KEY: z.string().optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_BUCKET: z.string().min(1).optional(),
+  S3_ACCESS_KEY: z.string().min(1).optional(),
+  S3_SECRET_KEY: z.string().min(1).optional(),
+  S3_REGION: z.string().default("ru-1"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info")
 });
 

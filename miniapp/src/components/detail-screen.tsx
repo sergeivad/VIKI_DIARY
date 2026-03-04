@@ -107,8 +107,8 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
     .join("\n\n") || null;
 
   const photoUrls = photos
-    .filter((p) => p.fileId)
-    .map((p) => ({ url: api.mediaUrl(p.fileId!) }));
+    .map((p) => ({ url: api.mediaUrl(p) }))
+    .filter((p) => p.url);
 
   async function handleDelete() {
     setDeleting(true);
@@ -135,7 +135,7 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
         <div className="flex items-center gap-3 mb-4">
           {entry.author.avatarFileId ? (
             <img
-              src={api.mediaUrl(entry.author.avatarFileId)}
+              src={api.mediaUrlByFileId(entry.author.avatarFileId)}
               alt=""
               className="h-10 w-10 rounded-full object-cover"
             />
@@ -173,20 +173,23 @@ export function DetailScreen({ entry }: { entry: DiaryEntry }) {
         )}
 
         {/* Videos */}
-        {videos.map((media) =>
-          media.fileId ? (
+        {videos.map((media) => {
+          const src = api.mediaUrl(media);
+          if (!src) return null;
+
+          return (
             <div key={media.id} className="w-full overflow-hidden rounded-2xl bg-muted mb-4">
               <video
-                src={api.mediaUrl(media.fileId)}
-                poster={media.thumbnailFileId ? api.mediaUrl(media.thumbnailFileId) : undefined}
+                src={src}
+                poster={api.mediaUrl(media, true) || undefined}
                 controls
                 preload="metadata"
                 playsInline
                 className="w-full"
               />
             </div>
-          ) : null,
-        )}
+          );
+        })}
 
         {/* Voice badge */}
         {voiceItem && (

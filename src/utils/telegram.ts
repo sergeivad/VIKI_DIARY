@@ -1,5 +1,36 @@
 import type { Api, RawApi } from "grammy";
 
+type DownloadedTelegramFile = {
+  data: Buffer;
+  mimeType: string;
+  filePath: string;
+};
+
+function inferMimeTypeFromFilePath(filePath: string): string {
+  const normalized = filePath.toLowerCase();
+
+  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
+  if (normalized.endsWith(".png")) return "image/png";
+  if (normalized.endsWith(".webp")) return "image/webp";
+  if (normalized.endsWith(".heic")) return "image/heic";
+  if (normalized.endsWith(".heif")) return "image/heif";
+  if (normalized.endsWith(".mp4")) return "video/mp4";
+  if (normalized.endsWith(".mov")) return "video/quicktime";
+  if (normalized.endsWith(".webm")) return "video/webm";
+  if (normalized.endsWith(".ogg")) return "audio/ogg";
+
+  return "application/octet-stream";
+}
+
+function normalizeMimeType(contentTypeHeader: string | null): string | null {
+  if (!contentTypeHeader) {
+    return null;
+  }
+
+  const value = contentTypeHeader.split(";")[0]?.trim();
+  return value && value.length > 0 ? value : null;
+}
+
 export async function getAvatarFileId(
   api: Api<RawApi>,
   userId: number
@@ -12,11 +43,11 @@ export async function getAvatarFileId(
   }
 }
 
-export async function downloadTelegramFile(
+export async function downloadTelegramFileWithMeta(
   api: Api<RawApi>,
   token: string,
   fileId: string
-): Promise<Buffer> {
+): Promise<DownloadedTelegramFile> {
   const file = await api.getFile(fileId);
 
   if (!file.file_path) {
@@ -31,5 +62,21 @@ export async function downloadTelegramFile(
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  const mimeType = normalizeMimeType(response.headers.get("content-type"))
+    ?? inferMimeTypeFromFilePath(file.file_path);
+
+  return {
+    data: Buffer.from(arrayBuffer),
+    mimeType,
+    filePath: file.file_path
+  };
+}
+
+export async function downloadTelegramFile(
+  api: Api<RawApi>,
+  token: string,
+  fileId: string
+): Promise<Buffer> {
+  const file = await downloadTelegramFileWithMeta(api, token, fileId);
+  return file.data;
 }

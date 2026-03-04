@@ -9,22 +9,72 @@ const MONTHS = [
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
+const GENERATION_STEPS = [
+  {
+    icon: "\u{1F4F7}",
+    phrases: [
+      "Разглядываем фоточки...",
+      "Изучаем шедевры фотоискусства...",
+      "Листаем альбом...",
+    ],
+    duration: 5000,
+  },
+  {
+    icon: "\u{1F50D}",
+    phrases: [
+      "Вспоминаем, что было...",
+      "Считаем достижения...",
+      "Собираем вехи...",
+    ],
+    duration: 10000,
+  },
+  {
+    icon: "\u2728",
+    phrases: [
+      "Пишем конспект месяца...",
+      "Подбираем слова...",
+      "Сочиняем с любовью...",
+    ],
+    duration: Infinity,
+  },
+];
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function LoadingAnimation() {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [phrase, setPhrase] = useState(() => pickRandom(GENERATION_STEPS[0].phrases));
+
+  useEffect(() => {
+    const step = GENERATION_STEPS[stepIndex];
+    if (step.duration === Infinity) return;
+
+    const timer = setTimeout(() => {
+      const nextIndex = Math.min(stepIndex + 1, GENERATION_STEPS.length - 1);
+      setStepIndex(nextIndex);
+      setPhrase(pickRandom(GENERATION_STEPS[nextIndex].phrases));
+    }, step.duration);
+
+    return () => clearTimeout(timer);
+  }, [stepIndex]);
+
+  const step = GENERATION_STEPS[stepIndex];
+  const progress = ((stepIndex + 1) / GENERATION_STEPS.length) * 100;
+
   return (
     <div className="flex flex-col items-center justify-center py-16">
-      <div className="relative mb-4">
-        <Sparkles className="h-8 w-8 text-primary animate-pulse" />
-      </div>
-      <p className="text-sm font-semibold text-foreground mb-1">Генерируем саммари...</p>
-      <p className="text-xs text-muted-foreground">AI анализирует записи за месяц</p>
-      <div className="mt-4 flex gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="h-2 w-2 rounded-full bg-primary animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s` }}
-          />
-        ))}
+      <div className="text-4xl mb-4">{step.icon}</div>
+      <p className="text-sm font-semibold text-foreground mb-1">{phrase}</p>
+      <p className="text-xs text-muted-foreground mb-4">
+        Шаг {stepIndex + 1} из {GENERATION_STEPS.length}
+      </p>
+      <div className="w-48 h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary rounded-full transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
       </div>
     </div>
   );
