@@ -47,6 +47,7 @@ export function createApiRouter(
       services.babyService,
       services.diaryService,
       services.summaryService,
+      getFileUrl,
     ),
   );
 

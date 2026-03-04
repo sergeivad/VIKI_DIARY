@@ -10,6 +10,7 @@ export function createSummaryRouter(
   babyService: BabyService,
   diaryService: DiaryService,
   summaryService: SummaryService,
+  getFileUrl: (fileId: string) => Promise<string>,
 ): Router {
   const router = Router();
 
@@ -73,13 +74,73 @@ export function createSummaryRouter(
         dateTo,
       });
 
+      // Collect photo fileIds from entries
+      const photoFileIds: { fileId: string }[] = [];
+      entries.forEach((entry) => {
+        for (const item of entry.items) {
+          if (item.type === "photo" && item.fileId) {
+            photoFileIds.push({ fileId: item.fileId });
+          }
+        }
+      });
+
+      // Get photo URLs and describe them
+      const photoDescriptions = new Map<string, string>();
+      if (photoFileIds.length > 0) {
+        const urlMap = new Map<string, string>(); // fileId -> url
+        await Promise.all(
+          photoFileIds.map(async ({ fileId }) => {
+            try {
+              const url = await getFileUrl(fileId);
+              urlMap.set(fileId, url);
+            } catch {
+              // skip photos we can't fetch
+            }
+          }),
+        );
+
+        const validUrls = [...urlMap.values()];
+        if (validUrls.length > 0) {
+          const descriptions =
+            await summaryService.describePhotos(validUrls);
+
+          // Map back from URL to fileId for entry enrichment
+          for (const [fileId, url] of urlMap) {
+            const desc = descriptions.get(url);
+            if (desc) {
+              photoDescriptions.set(fileId, desc);
+            }
+          }
+        }
+      }
+
+      // Build enriched entries text
       const entriesText = entries.map((entry) => {
         const date = entry.eventDate.toISOString().slice(0, 10);
         const textContent = entry.items
           .map((item) => item.textContent)
           .filter(Boolean)
           .join(" ");
-        return `[${date}] ${entry.author.firstName}: ${textContent}`;
+
+        const photoDescs = entry.items
+          .filter(
+            (item) =>
+              item.type === "photo" &&
+              item.fileId &&
+              photoDescriptions.has(item.fileId),
+          )
+          .map(
+            (item) =>
+              `[Фото: ${photoDescriptions.get(item.fileId!)}]`,
+          );
+
+        const parts = [
+          `[${date}] ${entry.author.firstName}: ${textContent}`,
+        ];
+        if (photoDescs.length > 0) {
+          parts.push(photoDescs.join(" "));
+        }
+        return parts.join(" ");
       });
 
       const text = await summaryService.generateSummary({
