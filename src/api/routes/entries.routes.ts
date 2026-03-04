@@ -5,6 +5,12 @@ import type { TaggingService } from "../../services/tagging.service.js";
 import type { AuthedRequest } from "../types.js";
 import { logger } from "../../config/logger.js";
 
+type SupportedMediaType = "photo" | "video";
+
+function isSupportedMediaType(type: unknown): type is SupportedMediaType {
+  return type === "photo" || type === "video";
+}
+
 export function createEntriesRouter(
   diaryService: DiaryService,
   taggingService: TaggingService,
@@ -61,7 +67,7 @@ export function createEntriesRouter(
         babyId?: string;
         text?: string;
         eventDate?: string;
-        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>;
+        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: string }>;
       };
 
       if (!babyId) {
@@ -80,6 +86,11 @@ export function createEntriesRouter(
       }
       if (media) {
         for (const item of media) {
+          if (!isSupportedMediaType(item.type)) {
+            res.status(400).json({ error: "unsupported media type" });
+            return;
+          }
+
           items.push({
             type: item.type,
             s3Key: item.s3Key,
@@ -180,7 +191,7 @@ export function createEntriesRouter(
     try {
       const { actor } = req as unknown as AuthedRequest;
       const { media } = req.body as {
-        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>;
+        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: string }>;
       };
 
       if (!media || media.length === 0) {
@@ -188,14 +199,23 @@ export function createEntriesRouter(
         return;
       }
 
+      for (const item of media) {
+        if (!isSupportedMediaType(item.type)) {
+          res.status(400).json({ error: "unsupported media type" });
+          return;
+        }
+      }
+
+      const mediaItems: DiaryItemInput[] = media.map((item) => ({
+        type: item.type as SupportedMediaType,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key ?? null,
+      }));
+
       const entry = await diaryService.addItemsToEntry({
         entryId: req.params.id,
         actorId: actor.userId,
-        items: media.map((item) => ({
-          type: item.type,
-          s3Key: item.s3Key,
-          thumbnailS3Key: item.thumbnailS3Key ?? null,
-        })),
+        items: mediaItems,
       });
 
       res.status(201).json(entry);

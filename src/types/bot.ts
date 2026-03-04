@@ -5,6 +5,7 @@ import type { BabyService } from "../services/baby.service.js";
 import type { DiaryService } from "../services/diary.service.js";
 import type { InviteService } from "../services/invite.service.js";
 import type { NotificationService } from "../services/notification.service.js";
+import type { S3Service } from "../services/s3.service.js";
 import type { SummaryService } from "../services/summary.service.js";
 import type { TaggingService } from "../services/tagging.service.js";
 import type { TranscriptionService } from "../services/transcription.service.js";
@@ -19,6 +20,7 @@ export type Services = {
   transcriptionService: TranscriptionService;
   taggingService: TaggingService;
   summaryService: SummaryService;
+  s3Service: S3Service | null;
 };
 
 export type BotContext = Context & ConversationFlavor<Context> & { services: Services };

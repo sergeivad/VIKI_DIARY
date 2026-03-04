@@ -131,6 +131,17 @@ describe("entries routes", () => {
       });
     });
 
+    it("returns 400 for unsupported media type", async () => {
+      const res = await request(app).post("/entries").send({
+        babyId: "baby-1",
+        media: [{ type: "gif", s3Key: "uploads/u/animation.gif" }],
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "unsupported media type" });
+      expect(mockDiaryService.createEntry).not.toHaveBeenCalled();
+    });
+
     it("returns 400 if babyId missing or both text and media are missing", async () => {
       const res = await request(app).post("/entries").send({ text: "hello" });
       expect(res.status).toBe(400);
@@ -161,6 +172,16 @@ describe("entries routes", () => {
     it("returns 400 when media array is missing", async () => {
       const res = await request(app).post("/entries/e1/media").send({});
       expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when media item type is unsupported", async () => {
+      const res = await request(app)
+        .post("/entries/e1/media")
+        .send({ media: [{ type: "gif", s3Key: "uploads/u/animation.gif" }] });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "unsupported media type" });
+      expect(mockDiaryService.addItemsToEntry).not.toHaveBeenCalled();
     });
   });
 

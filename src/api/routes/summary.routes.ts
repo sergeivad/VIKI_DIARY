@@ -2,15 +2,36 @@ import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { BabyService } from "../../services/baby.service.js";
 import type { DiaryService } from "../../services/diary.service.js";
-import type { SummaryService } from "../../services/summary.service.js";
+import type { S3Service } from "../../services/s3.service.js";
+import type { SummaryPhotoInput, SummaryService } from "../../services/summary.service.js";
 import type { AuthedRequest } from "../types.js";
 import { getMonthDateRange } from "../../utils/month.js";
+
+type GetTelegramPhotoData = (fileId: string) => Promise<{ data: Buffer; mimeType: string }>;
+
+function getPhotoKey(item: { fileId: string | null; s3Key: string | null }): string | null {
+  if (item.fileId) {
+    return `file:${item.fileId}`;
+  }
+
+  if (item.s3Key) {
+    return `s3:${item.s3Key}`;
+  }
+
+  return null;
+}
+
+function getItemS3Key(item: unknown): string | null {
+  const value = (item as { s3Key?: unknown }).s3Key;
+  return typeof value === "string" ? value : null;
+}
 
 export function createSummaryRouter(
   babyService: BabyService,
   diaryService: DiaryService,
   summaryService: SummaryService,
-  getFileUrl: (fileId: string) => Promise<string>,
+  getTelegramPhotoData: GetTelegramPhotoData,
+  s3Service: S3Service | null,
 ): Router {
   const router = Router();
 
@@ -74,45 +95,53 @@ export function createSummaryRouter(
         dateTo,
       });
 
-      // Collect photo fileIds from entries
-      const photoFileIds: { fileId: string }[] = [];
+      const uniquePhotos = new Map<string, { fileId: string | null; s3Key: string | null }>();
       entries.forEach((entry) => {
         for (const item of entry.items) {
-          if (item.type === "photo" && item.fileId) {
-            photoFileIds.push({ fileId: item.fileId });
+          if (item.type !== "photo") {
+            continue;
           }
+
+          const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+          if (!key) {
+            continue;
+          }
+
+          uniquePhotos.set(key, { fileId: item.fileId, s3Key: getItemS3Key(item) });
         }
       });
 
-      // Get photo URLs and describe them
-      const photoDescriptions = new Map<string, string>();
-      if (photoFileIds.length > 0) {
-        const urlMap = new Map<string, string>(); // fileId -> url
-        await Promise.all(
-          photoFileIds.map(async ({ fileId }) => {
-            try {
-              const url = await getFileUrl(fileId);
-              urlMap.set(fileId, url);
-            } catch {
-              // skip photos we can't fetch
+      const photoInputs = (await Promise.all(
+        [...uniquePhotos.entries()].map(async ([key, source]): Promise<SummaryPhotoInput | null> => {
+          try {
+            if (source.fileId) {
+              const telegramPhoto = await getTelegramPhotoData(source.fileId);
+              return {
+                key,
+                mimeType: telegramPhoto.mimeType,
+                data: telegramPhoto.data,
+              };
             }
-          }),
-        );
 
-        const validUrls = [...urlMap.values()];
-        if (validUrls.length > 0) {
-          const descriptions =
-            await summaryService.describePhotos(validUrls);
-
-          // Map back from URL to fileId for entry enrichment
-          for (const [fileId, url] of urlMap) {
-            const desc = descriptions.get(url);
-            if (desc) {
-              photoDescriptions.set(fileId, desc);
+            if (source.s3Key && s3Service) {
+              const s3Photo = await s3Service.getObjectData(source.s3Key);
+              return {
+                key,
+                mimeType: s3Photo.mimeType ?? "image/jpeg",
+                data: s3Photo.data,
+              };
             }
+
+            return null;
+          } catch {
+            return null;
           }
-        }
-      }
+        }),
+      )).filter((item): item is SummaryPhotoInput => item !== null);
+
+      const photoDescriptions = photoInputs.length > 0
+        ? await summaryService.describePhotos(photoInputs)
+        : new Map<string, string>();
 
       // Build enriched entries text
       const entriesText = entries.map((entry) => {
@@ -123,16 +152,17 @@ export function createSummaryRouter(
           .join(" ");
 
         const photoDescs = entry.items
-          .filter(
-            (item) =>
-              item.type === "photo" &&
-              item.fileId &&
-              photoDescriptions.has(item.fileId),
-          )
-          .map(
-            (item) =>
-              `[Фото: ${photoDescriptions.get(item.fileId!)}]`,
-          );
+          .filter((item) => item.type === "photo")
+          .map((item) => {
+            const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+            if (!key) {
+              return null;
+            }
+
+            const description = photoDescriptions.get(key);
+            return description ? `[Фото: ${description}]` : null;
+          })
+          .filter((item): item is string => item !== null);
 
         const parts = [
           `[${date}] ${entry.author.firstName}: ${textContent}`,

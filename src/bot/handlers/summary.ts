@@ -4,10 +4,29 @@ import { buildSummaryKeyboard } from "../keyboards/summary.js";
 import { formatRuMonth } from "../../utils/month.js";
 import { getMonthDateRange } from "../../utils/month.js";
 import { isSummaryDomainError } from "../../services/summary.errors.js";
+import type { SummaryPhotoInput } from "../../services/summary.service.js";
 import { env } from "../../config/env.js";
+import { downloadTelegramFileWithMeta } from "../../utils/telegram.js";
 
 const NO_DIARY_MESSAGE =
   "Сначала создайте дневник через /start или присоединитесь по инвайт-ссылке.";
+
+function getPhotoKey(item: { fileId: string | null; s3Key: string | null }): string | null {
+  if (item.fileId) {
+    return `file:${item.fileId}`;
+  }
+
+  if (item.s3Key) {
+    return `s3:${item.s3Key}`;
+  }
+
+  return null;
+}
+
+function getItemS3Key(item: unknown): string | null {
+  const value = (item as { s3Key?: unknown }).s3Key;
+  return typeof value === "string" ? value : null;
+}
 
 function resolveTargetMonth(): { year: number; month: number } {
   const now = new Date();
@@ -48,51 +67,74 @@ export async function generateSummaryMessage(
     return `В ${formatRuMonth(year, month)} записей нет.`;
   }
 
-  // Collect photo fileIds from entries
-  const photoFileIds: { fileId: string }[] = [];
+  const uniquePhotos = new Map<string, { fileId: string | null; s3Key: string | null }>();
   entries.forEach((entry) => {
     for (const item of entry.items) {
-      if (item.type === "photo" && item.fileId) {
-        photoFileIds.push({ fileId: item.fileId });
+      if (item.type !== "photo") {
+        continue;
       }
+
+      const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+      if (!key) {
+        continue;
+      }
+
+      uniquePhotos.set(key, { fileId: item.fileId, s3Key: getItemS3Key(item) });
     }
   });
 
-  // Get photo URLs and describe them
-  const photoDescriptions = new Map<string, string>();
-  if (photoFileIds.length > 0) {
-    const urlMap = new Map<string, string>(); // fileId -> url
-    await Promise.all(
-      photoFileIds.map(async ({ fileId }) => {
+  const photoInputs = (await Promise.all(
+    [...uniquePhotos.entries()].map(async ([key, source]): Promise<SummaryPhotoInput | null> => {
+      if (source.fileId) {
         try {
-          const file = await ctx.api.getFile(fileId);
-          if (!file.file_path) return;
-          const url = `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${file.file_path}`;
-          urlMap.set(fileId, url);
+          const telegramPhoto = await downloadTelegramFileWithMeta(ctx.api, env.BOT_TOKEN, source.fileId);
+          return {
+            key,
+            mimeType: telegramPhoto.mimeType,
+            data: telegramPhoto.data
+          };
         } catch {
-          // skip photos we can't fetch
+          return null;
         }
-      })
-    );
-
-    const validUrls = [...urlMap.values()];
-    if (validUrls.length > 0) {
-      const descriptions = await ctx.services.summaryService.describePhotos(validUrls);
-
-      for (const [fileId, url] of urlMap) {
-        const desc = descriptions.get(url);
-        if (desc) photoDescriptions.set(fileId, desc);
       }
-    }
-  }
+
+      if (source.s3Key && ctx.services.s3Service) {
+        try {
+          const s3Photo = await ctx.services.s3Service.getObjectData(source.s3Key);
+          return {
+            key,
+            mimeType: s3Photo.mimeType ?? "image/jpeg",
+            data: s3Photo.data
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    })
+  )).filter((item): item is SummaryPhotoInput => item !== null);
+
+  const photoDescriptions = photoInputs.length > 0
+    ? await ctx.services.summaryService.describePhotos(photoInputs)
+    : new Map<string, string>();
 
   const entriesText = entries.map((entry) => {
     const date = entry.eventDate.toISOString().slice(0, 10);
     const text = getHistoryTextContent(entry.items);
 
     const photoDescs = entry.items
-      .filter((item) => item.type === "photo" && item.fileId && photoDescriptions.has(item.fileId))
-      .map((item) => `[Фото: ${photoDescriptions.get(item.fileId!)}]`);
+      .filter((item) => item.type === "photo")
+      .map((item) => {
+        const key = getPhotoKey({ fileId: item.fileId, s3Key: getItemS3Key(item) });
+        if (!key) {
+          return null;
+        }
+
+        const description = photoDescriptions.get(key);
+        return description ? `[Фото: ${description}]` : null;
+      })
+      .filter((item): item is string => item !== null);
 
     const parts = [`[${date}] ${text}`];
     if (photoDescs.length > 0) parts.push(photoDescs.join(" "));

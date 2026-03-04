@@ -93,7 +93,7 @@ describe("SummaryService", () => {
   });
 
   describe("describePhotos", () => {
-    it("returns descriptions mapped by URL", async () => {
+    it("returns descriptions mapped by key", async () => {
       const openai = {
         chat: {
           completions: {
@@ -106,13 +106,13 @@ describe("SummaryService", () => {
       const service = new SummaryService(mockPrisma, openai, mockLogger);
 
       const result = await service.describePhotos([
-        "https://example.com/photo1.jpg",
-        "https://example.com/photo2.jpg",
+        { key: "photo-1", mimeType: "image/jpeg", data: Buffer.from("photo-1-data") },
+        { key: "photo-2", mimeType: "image/png", data: Buffer.from("photo-2-data") },
       ]);
 
       expect(result).toEqual(new Map([
-        ["https://example.com/photo1.jpg", "Малыш на качелях в парке"],
-        ["https://example.com/photo2.jpg", "Ребёнок ест кашу за столиком"],
+        ["photo-1", "Малыш на качелях в парке"],
+        ["photo-2", "Ребёнок ест кашу за столиком"],
       ]));
 
       const create = openai.chat.completions.create as ReturnType<typeof vi.fn>;
@@ -121,6 +121,7 @@ describe("SummaryService", () => {
       const call = create.mock.calls[0][0];
       expect(call.model).toBe("gpt-4o-mini");
       expect(call.messages[0].content[1].image_url.detail).toBe("low");
+      expect(call.messages[0].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
     });
 
     it("returns empty map for empty input", async () => {
@@ -144,12 +145,12 @@ describe("SummaryService", () => {
       const service = new SummaryService(mockPrisma, openai, mockLogger);
 
       const result = await service.describePhotos([
-        "https://example.com/ok.jpg",
-        "https://example.com/fail.jpg",
+        { key: "ok", mimeType: "image/jpeg", data: Buffer.from("ok-data") },
+        { key: "fail", mimeType: "image/jpeg", data: Buffer.from("fail-data") },
       ]);
 
       expect(result.size).toBe(1);
-      expect(result.get("https://example.com/ok.jpg")).toBe("Малыш спит");
+      expect(result.get("ok")).toBe("Малыш спит");
       expect(mockLogger.warn).toHaveBeenCalled();
     });
   });

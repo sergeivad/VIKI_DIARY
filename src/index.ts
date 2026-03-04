@@ -19,6 +19,7 @@ import { TaggingService } from "./services/tagging.service.js";
 import { ThumbnailService } from "./services/thumbnail.service.js";
 import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
+import { downloadTelegramFileWithMeta } from "./utils/telegram.js";
 
 const app = express();
 
@@ -73,7 +74,15 @@ const getFileUrl = async (fileId: string): Promise<string> => {
   return `https://api.telegram.org/file/bot${env.BOT_TOKEN}/${file.file_path}`;
 };
 
-const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl);
+const getTelegramPhotoData = async (fileId: string): Promise<{ data: Buffer; mimeType: string }> => {
+  const file = await downloadTelegramFileWithMeta(bot.api, env.BOT_TOKEN, fileId);
+  return {
+    data: file.data,
+    mimeType: file.mimeType
+  };
+};
+
+const apiRouter = createApiRouter(services, env.BOT_TOKEN, getFileUrl, getTelegramPhotoData);
 
 app.get("/health/live", (_req, res) => {
   res.status(200).json({ ok: true, status: "live" });

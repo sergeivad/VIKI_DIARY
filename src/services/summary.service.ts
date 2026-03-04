@@ -12,6 +12,12 @@ export type SummaryInput = {
   entriesText: string[];
 };
 
+export type SummaryPhotoInput = {
+  key: string;
+  mimeType: string;
+  data: Buffer;
+};
+
 const SYSTEM_PROMPT = `Ты — помощник для детского дневника.
 Тебе дают записи и описания фотографий за один месяц. Составь конспект месяца.
 
@@ -97,13 +103,16 @@ export class SummaryService {
     }
   }
 
-  async describePhotos(photoUrls: string[]): Promise<Map<string, string>> {
-    if (photoUrls.length === 0) return new Map();
+  async describePhotos(photos: SummaryPhotoInput[]): Promise<Map<string, string>> {
+    if (photos.length === 0) return new Map();
 
     const results = new Map<string, string>();
 
-    const promises = photoUrls.map(async (url) => {
+    const promises = photos.map(async (photo) => {
       try {
+        const encodedData = photo.data.toString("base64");
+        const imageUrl = `data:${photo.mimeType};base64,${encodedData}`;
+
         const response = await this.openai.chat.completions.create({
           model: "gpt-4o-mini",
           max_tokens: 100,
@@ -112,7 +121,7 @@ export class SummaryService {
               role: "user",
               content: [
                 { type: "text", text: "Опиши что на фотографии одним предложением на русском." },
-                { type: "image_url", image_url: { url, detail: "low" } },
+                { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
               ],
             },
           ],
@@ -120,10 +129,10 @@ export class SummaryService {
 
         const description = response.choices[0]?.message?.content?.trim();
         if (description) {
-          results.set(url, description);
+          results.set(photo.key, description);
         }
       } catch (error) {
-        this.log.warn({ url, err: error }, "Failed to describe photo, skipping");
+        this.log.warn({ photoKey: photo.key, err: error }, "Failed to describe photo, skipping");
       }
     });
 

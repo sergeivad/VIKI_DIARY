@@ -46,6 +46,11 @@ export type UploadResult = {
   size: number;
 };
 
+export type S3ObjectData = {
+  data: Buffer;
+  mimeType: string | null;
+};
+
 export class S3Service {
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -118,6 +123,26 @@ export class S3Service {
     });
 
     return getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  async getObjectData(s3Key: string): Promise<S3ObjectData> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: s3Key,
+      }),
+    );
+
+    const body = response.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+    if (!body?.transformToByteArray) {
+      throw new Error("Failed to read S3 object body");
+    }
+
+    const bytes = await body.transformToByteArray();
+    return {
+      data: Buffer.from(bytes),
+      mimeType: response.ContentType ?? null,
+    };
   }
 
   async delete(s3Key: string): Promise<void> {
