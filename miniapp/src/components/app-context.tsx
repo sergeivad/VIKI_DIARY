@@ -207,7 +207,7 @@ export function AppProvider({ ready }: { ready: boolean }) {
     >
       <div className="mx-auto max-w-[428px] min-h-screen bg-background relative">
         <AppRouter />
-        {screen.type !== "detail" && screen.type !== "edit" && <BottomTabBar />}
+        {screen.type !== "detail" && screen.type !== "edit" && screen.type !== "create" && <BottomTabBar />}
         <Snackbar />
       </div>
     </AppContext.Provider>
