@@ -18,6 +18,7 @@ const mockDiaryService = {
   getHistory: vi.fn(),
   getEntryById: vi.fn(),
   createEntry: vi.fn(),
+  addItemsToEntry: vi.fn(),
   updateEntryText: vi.fn(),
   updateEventDate: vi.fn(),
   deleteEntry: vi.fn(),
@@ -111,12 +112,55 @@ describe("entries routes", () => {
       });
     });
 
-    it("returns 400 if babyId or text missing", async () => {
+    it("creates media-only entry", async () => {
+      const entry = { id: "e2", items: [{ type: "photo", s3Key: "uploads/u/photo.jpg" }] };
+      mockDiaryService.createEntry.mockResolvedValue(entry);
+
+      const res = await request(app).post("/entries").send({
+        babyId: "baby-1",
+        media: [{ type: "photo", s3Key: "uploads/u/photo.jpg" }],
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(entry);
+      expect(mockDiaryService.createEntry).toHaveBeenCalledWith({
+        babyId: "baby-1",
+        authorId: "user-1",
+        eventDate: undefined,
+        items: [{ type: "photo", s3Key: "uploads/u/photo.jpg", thumbnailS3Key: null }],
+      });
+    });
+
+    it("returns 400 if babyId missing or both text and media are missing", async () => {
       const res = await request(app).post("/entries").send({ text: "hello" });
       expect(res.status).toBe(400);
 
-      const res2 = await request(app).post("/entries").send({ babyId: "baby-1" });
+      const res2 = await request(app).post("/entries").send({ babyId: "baby-1", text: "" });
       expect(res2.status).toBe(400);
+    });
+  });
+
+  describe("POST /entries/:id/media", () => {
+    it("adds media items to existing entry", async () => {
+      const updatedEntry = { id: "e1", items: [{ type: "video", s3Key: "uploads/u/video.mp4" }] };
+      mockDiaryService.addItemsToEntry.mockResolvedValue(updatedEntry);
+
+      const res = await request(app)
+        .post("/entries/e1/media")
+        .send({ media: [{ type: "video", s3Key: "uploads/u/video.mp4" }] });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(updatedEntry);
+      expect(mockDiaryService.addItemsToEntry).toHaveBeenCalledWith({
+        entryId: "e1",
+        actorId: "user-1",
+        items: [{ type: "video", s3Key: "uploads/u/video.mp4", thumbnailS3Key: null }],
+      });
+    });
+
+    it("returns 400 when media array is missing", async () => {
+      const res = await request(app).post("/entries/e1/media").send({});
+      expect(res.status).toBe(400);
     });
   });
 

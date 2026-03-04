@@ -13,8 +13,10 @@ import { BabyService } from "./services/baby.service.js";
 import { DiaryService } from "./services/diary.service.js";
 import { InviteService } from "./services/invite.service.js";
 import { NotificationService } from "./services/notification.service.js";
+import { S3Service } from "./services/s3.service.js";
 import { SummaryService } from "./services/summary.service.js";
 import { TaggingService } from "./services/tagging.service.js";
+import { ThumbnailService } from "./services/thumbnail.service.js";
 import { TranscriptionService } from "./services/transcription.service.js";
 import { UserService } from "./services/user.service.js";
 
@@ -29,6 +31,20 @@ const diaryService = new DiaryService(prisma);
 const transcriptionService = new TranscriptionService(openai);
 const taggingService = new TaggingService(openai, logger);
 const summaryService = new SummaryService(prisma, openai, logger);
+const s3Service =
+  env.S3_ENDPOINT &&
+  env.S3_BUCKET &&
+  env.S3_ACCESS_KEY &&
+  env.S3_SECRET_KEY
+    ? new S3Service({
+        endpoint: env.S3_ENDPOINT,
+        bucket: env.S3_BUCKET,
+        accessKey: env.S3_ACCESS_KEY,
+        secretKey: env.S3_SECRET_KEY,
+        region: env.S3_REGION,
+      })
+    : null;
+const thumbnailService = new ThumbnailService();
 
 let bot!: ReturnType<typeof createBot>;
 
@@ -40,6 +56,8 @@ const services = {
   transcriptionService,
   taggingService,
   summaryService,
+  s3Service,
+  thumbnailService,
   notificationService: new NotificationService(
     babyService,
     async (telegramId, text) => {

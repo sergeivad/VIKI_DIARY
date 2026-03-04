@@ -1,21 +1,33 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import { logger } from "../../config/logger.js";
+import type { S3Service } from "../../services/s3.service.js";
 
 type GetFileUrl = (fileId: string) => Promise<string>;
 
-export function createMediaRouter(getFileUrl: GetFileUrl): Router {
+export function createMediaRouter(
+  getFileUrl: GetFileUrl,
+  s3Service: S3Service | null = null,
+): Router {
   const router = Router();
 
   router.get("/:fileId", async (req, res: Response, next: NextFunction) => {
     try {
-      const fileId = req.params.fileId.trim();
-      if (!fileId) {
+      const source = req.query.source as string | undefined;
+      const id = req.params.fileId.trim();
+
+      if (!id) {
         res.status(400).json({ error: "fileId is required" });
         return;
       }
 
-      const url = await getFileUrl(fileId);
+      if (source === "s3" && s3Service) {
+        const presignedUrl = await s3Service.getPresignedUrl(id);
+        res.redirect(302, presignedUrl);
+        return;
+      }
+
+      const url = await getFileUrl(id);
       const upstream = await fetch(url);
 
       if (!upstream.ok) {

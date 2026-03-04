@@ -27,7 +27,7 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
       <div className="flex items-center gap-2.5 mb-2.5">
         {entry.author.avatarFileId ? (
           <img
-            src={api.mediaUrl(entry.author.avatarFileId)}
+            src={api.mediaUrlByFileId(entry.author.avatarFileId)}
             alt=""
             className="h-8 w-8 rounded-full object-cover"
           />
@@ -57,30 +57,39 @@ function EntryCard({ entry }: { entry: DiaryEntry }) {
                 photos.length === 1 ? "aspect-[16/10]" : "aspect-square"
               } bg-muted`}
             >
-              {media.fileId && media.type === "video" ? (
-                <>
-                  <video
-                    src={api.mediaUrl(media.fileId)}
-                    poster={media.thumbnailFileId ? api.mediaUrl(media.thumbnailFileId) : undefined}
-                    preload="metadata"
-                    muted
-                    playsInline
+              {(() => {
+                const src = api.mediaUrl(media);
+                if (!src) return null;
+
+                if (media.type === "video") {
+                  return (
+                    <>
+                      <video
+                        src={src}
+                        poster={api.mediaUrl(media, true) || undefined}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90">
+                          <Play className="h-4 w-4 text-foreground ml-0.5" fill="currentColor" />
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                return (
+                  <img
+                    src={src}
+                    alt=""
                     className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90">
-                      <Play className="h-4 w-4 text-foreground ml-0.5" fill="currentColor" />
-                    </div>
-                  </div>
-                </>
-              ) : media.fileId ? (
-                <img
-                  src={api.mediaUrl(media.fileId)}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="lazy"
-                />
-              ) : null}
+                );
+              })()}
               {i === 3 && extraCount > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center bg-foreground/40">
                   <span className="text-lg font-bold text-primary-foreground">+{extraCount}</span>

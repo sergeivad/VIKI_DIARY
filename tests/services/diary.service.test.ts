@@ -69,6 +69,8 @@ describe("DiaryService", () => {
               textContent: "first",
               fileId: null,
               thumbnailFileId: null,
+              s3Key: null,
+              thumbnailS3Key: null,
               orderIndex: 0
             },
             {
@@ -76,6 +78,8 @@ describe("DiaryService", () => {
               textContent: "caption",
               fileId: "file-1",
               thumbnailFileId: null,
+              s3Key: null,
+              thumbnailS3Key: null,
               orderIndex: 1
             }
           ]
@@ -97,6 +101,72 @@ describe("DiaryService", () => {
         }
       }
     });
+  });
+
+  it("creates entry with s3Key media item", async () => {
+    const now = new Date("2026-03-04T12:00:00.000Z");
+    const create = vi.fn().mockResolvedValue({
+      id: "entry-1",
+      babyId: "baby-1",
+      authorId: "user-1",
+      eventDate: new Date("2026-03-04"),
+      mergeWindowUntil: new Date("2026-03-04T12:10:00.000Z"),
+      createdAt: now,
+      updatedAt: now,
+      items: [
+        {
+          id: "item-1",
+          type: EntryItemType.photo,
+          textContent: null,
+          fileId: null,
+          thumbnailFileId: null,
+          s3Key: "uploads/baby-1/abc.jpg",
+          thumbnailS3Key: null,
+          orderIndex: 0,
+          createdAt: now,
+        },
+      ],
+      author: { id: "user-1", firstName: "Test", username: null, avatarFileId: null },
+    });
+
+    const db = { diaryEntry: { create } } as unknown as PrismaClient;
+    const service = new DiaryService(db);
+
+    const result = await service.createEntry({
+      babyId: "baby-1",
+      authorId: "user-1",
+      items: [{ type: "photo", s3Key: "uploads/baby-1/abc.jpg" }],
+      now,
+    });
+
+    expect(result.items[0].s3Key).toBe("uploads/baby-1/abc.jpg");
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          items: {
+            create: [
+              expect.objectContaining({
+                s3Key: "uploads/baby-1/abc.jpg",
+                fileId: null,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects media item without fileId or s3Key", async () => {
+    const db = {} as unknown as PrismaClient;
+    const service = new DiaryService(db);
+
+    await expect(
+      service.createEntry({
+        babyId: "baby-1",
+        authorId: "user-1",
+        items: [{ type: "photo" }],
+      }),
+    ).rejects.toThrow("Media item must include file id or s3 key");
   });
 
   it("getOpenEntry queries only open entries for Moscow today", async () => {
@@ -192,6 +262,8 @@ describe("DiaryService", () => {
           textContent: "new text",
           fileId: null,
           thumbnailFileId: null,
+          s3Key: null,
+          thumbnailS3Key: null,
           orderIndex: 3
         },
         {
@@ -200,6 +272,8 @@ describe("DiaryService", () => {
           textContent: "video caption",
           fileId: "video-1",
           thumbnailFileId: null,
+          s3Key: null,
+          thumbnailS3Key: null,
           orderIndex: 4
         }
       ]
@@ -310,6 +384,8 @@ describe("DiaryService", () => {
           textContent: "hello",
           fileId: null,
           thumbnailFileId: null,
+          s3Key: null,
+          thumbnailS3Key: null,
           orderIndex: 2
         }
       ]
@@ -366,6 +442,8 @@ describe("DiaryService", () => {
               textContent: "transcription text",
               fileId: "voice-file-1",
               thumbnailFileId: null,
+              s3Key: null,
+              thumbnailS3Key: null,
               orderIndex: 0
             }
           ]

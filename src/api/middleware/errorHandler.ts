@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { DiaryDomainError, DiaryErrorCode } from "../../services/diary.errors.js";
 import { InviteDomainError, InviteErrorCode } from "../../services/invite.errors.js";
+import { S3DomainError, S3ErrorCode } from "../../services/s3.errors.js";
 import { SummaryDomainError, SummaryErrorCode } from "../../services/summary.errors.js";
 import { logger } from "../../config/logger.js";
 
@@ -24,6 +25,13 @@ const summaryCodeToHttp: Record<string, number> = {
   [SummaryErrorCode.generationFailed]: 502,
 };
 
+const s3CodeToHttp: Record<string, number> = {
+  [S3ErrorCode.uploadFailed]: 502,
+  [S3ErrorCode.fileTooLarge]: 413,
+  [S3ErrorCode.unsupportedMediaType]: 415,
+  [S3ErrorCode.s3NotConfigured]: 503,
+};
+
 export function apiErrorHandler(
   err: unknown,
   _req: Request,
@@ -40,6 +48,10 @@ export function apiErrorHandler(
   }
   if (err instanceof SummaryDomainError) {
     res.status(summaryCodeToHttp[err.code] ?? 500).json({ error: err.message, code: err.code });
+    return;
+  }
+  if (err instanceof S3DomainError) {
+    res.status(s3CodeToHttp[err.code] ?? 500).json({ error: err.message, code: err.code });
     return;
   }
   logger.error({ err }, "Unhandled API error");

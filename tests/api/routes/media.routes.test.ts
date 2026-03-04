@@ -17,10 +17,13 @@ function fakeAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-function buildApp(getFileUrl: (fileId: string) => Promise<string>) {
+function buildApp(
+  getFileUrl: (fileId: string) => Promise<string>,
+  s3Service: { getPresignedUrl: (key: string) => Promise<string> } | null = null,
+) {
   const app = express();
   app.use(fakeAuth);
-  app.use("/media", createMediaRouter(getFileUrl));
+  app.use("/media", createMediaRouter(getFileUrl, s3Service as any));
   app.use(apiErrorHandler);
   return app;
 }
@@ -30,6 +33,17 @@ describe("media routes", () => {
 
   beforeEach(() => {
     getFileUrl = vi.fn();
+  });
+
+  it("redirects to S3 presigned URL when source=s3", async () => {
+    const getPresignedUrl = vi.fn().mockResolvedValue("https://s3.test/object?signature=1");
+    const app = buildApp(getFileUrl, { getPresignedUrl });
+    const res = await request(app).get("/media/uploads%2Fuser-1%2Fabc.jpg?source=s3");
+
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe("https://s3.test/object?signature=1");
+    expect(getPresignedUrl).toHaveBeenCalledWith("uploads/user-1/abc.jpg");
+    expect(getFileUrl).not.toHaveBeenCalled();
   });
 
   it("returns 502 when upstream fetch fails", async () => {

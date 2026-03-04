@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
-import type { DiaryService } from "../../services/diary.service.js";
+import type { DiaryItemInput, DiaryService } from "../../services/diary.service.js";
 import type { TaggingService } from "../../services/tagging.service.js";
 import type { AuthedRequest } from "../types.js";
 import { logger } from "../../config/logger.js";
@@ -53,33 +53,54 @@ export function createEntriesRouter(
     }
   });
 
-  // POST / — create text entry
+  // POST / — create entry
   router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
       const { actor } = req as AuthedRequest;
-      const { babyId, text, eventDate } = req.body as {
+      const { babyId, text, eventDate, media } = req.body as {
         babyId?: string;
         text?: string;
         eventDate?: string;
+        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>;
       };
 
-      if (!babyId || !text) {
-        res.status(400).json({ error: "babyId and text are required" });
+      if (!babyId) {
+        res.status(400).json({ error: "babyId is required" });
         return;
+      }
+
+      if (!text && (!media || media.length === 0)) {
+        res.status(400).json({ error: "text or media is required" });
+        return;
+      }
+
+      const items: DiaryItemInput[] = [];
+      if (text) {
+        items.push({ type: "text", textContent: text });
+      }
+      if (media) {
+        for (const item of media) {
+          items.push({
+            type: item.type,
+            s3Key: item.s3Key,
+            thumbnailS3Key: item.thumbnailS3Key ?? null,
+          });
+        }
       }
 
       const entry = await diaryService.createEntry({
         babyId,
         authorId: actor.userId,
         eventDate: eventDate ? new Date(eventDate) : undefined,
-        items: [{ type: "text", textContent: text }],
+        items,
       });
 
-      // Fire-and-forget tagging
-      taggingService
-        .generateTags(text)
-        .then((tags) => diaryService.updateTags(entry.id, tags))
-        .catch((err) => logger.error({ err }, "Fire-and-forget tagging failed"));
+      if (text) {
+        taggingService
+          .generateTags(text)
+          .then((tags) => diaryService.updateTags(entry.id, tags))
+          .catch((err) => logger.error({ err }, "Fire-and-forget tagging failed"));
+      }
 
       res.status(201).json(entry);
     } catch (err) {
@@ -149,6 +170,35 @@ export function createEntriesRouter(
       });
 
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /:id/media — add media items to existing entry
+  router.post("/:id/media", async (req, res: Response, next: NextFunction) => {
+    try {
+      const { actor } = req as unknown as AuthedRequest;
+      const { media } = req.body as {
+        media?: Array<{ s3Key: string; thumbnailS3Key?: string; type: "photo" | "video" }>;
+      };
+
+      if (!media || media.length === 0) {
+        res.status(400).json({ error: "media array is required" });
+        return;
+      }
+
+      const entry = await diaryService.addItemsToEntry({
+        entryId: req.params.id,
+        actorId: actor.userId,
+        items: media.map((item) => ({
+          type: item.type,
+          s3Key: item.s3Key,
+          thumbnailS3Key: item.thumbnailS3Key ?? null,
+        })),
+      });
+
+      res.status(201).json(entry);
     } catch (err) {
       next(err);
     }

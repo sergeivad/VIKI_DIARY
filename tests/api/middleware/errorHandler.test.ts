@@ -8,6 +8,7 @@ vi.mock("../../../src/config/logger.js", () => ({
 import { apiErrorHandler } from "../../../src/api/middleware/errorHandler.js";
 import { DiaryDomainError, DiaryErrorCode } from "../../../src/services/diary.errors.js";
 import { InviteDomainError, InviteErrorCode } from "../../../src/services/invite.errors.js";
+import { S3DomainError, S3ErrorCode } from "../../../src/services/s3.errors.js";
 import { SummaryDomainError, SummaryErrorCode } from "../../../src/services/summary.errors.js";
 
 function mockRes() {
@@ -48,6 +49,13 @@ describe("apiErrorHandler", () => {
     const res = mockRes();
     apiErrorHandler(err, req, res, next);
     expect(res.status).toHaveBeenCalledWith(422);
+  });
+
+  it("maps UNSUPPORTED_MEDIA_TYPE to 415", () => {
+    const err = new S3DomainError(S3ErrorCode.unsupportedMediaType, "Unsupported");
+    const res = mockRes();
+    apiErrorHandler(err, req, res, next);
+    expect(res.status).toHaveBeenCalledWith(415);
   });
 
   it("returns 500 for unknown errors", () => {
