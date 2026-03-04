@@ -128,4 +128,46 @@ describe("media routes", () => {
 
     expect(res.status).toBe(500);
   });
+
+  it("retries Telegram fetch on transient network error", async () => {
+    getFileUrl.mockResolvedValue("https://api.telegram.org/file/bot123/photo.jpg");
+
+    const originalFetch = globalThis.fetch;
+    const imageData = new TextEncoder().encode("retry-ok");
+    globalThis.fetch = vi.fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "image/jpeg" }),
+        arrayBuffer: () => Promise.resolve(imageData.buffer),
+      }) as any;
+
+    try {
+      const app = buildApp(getFileUrl);
+      const res = await request(app).get("/media/retry-file-id");
+
+      expect(res.status).toBe(200);
+      expect(res.body.toString()).toBe("retry-ok");
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns 502 when Telegram fetch times out repeatedly", async () => {
+    getFileUrl.mockResolvedValue("https://api.telegram.org/file/bot123/photo.jpg");
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError("fetch failed")) as any;
+
+    try {
+      const app = buildApp(getFileUrl);
+      const res = await request(app).get("/media/timeout-file-id");
+
+      expect(res.status).toBe(502);
+      expect(res.body.error).toBe("Failed to fetch file from Telegram");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

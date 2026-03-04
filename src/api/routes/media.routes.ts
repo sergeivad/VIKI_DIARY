@@ -1,9 +1,51 @@
 import { Router } from "express";
-import type { Response, NextFunction } from "express";
+import type { Response as ExpressResponse, NextFunction } from "express";
 import { logger } from "../../config/logger.js";
 import type { S3Service } from "../../services/s3.service.js";
 
 type GetFileUrl = (fileId: string) => Promise<string>;
+
+const TELEGRAM_FETCH_TIMEOUT_MS = 10_000;
+const TELEGRAM_FETCH_MAX_ATTEMPTS = 3;
+const TELEGRAM_FETCH_RETRY_DELAY_MS = 250;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isTransientFetchError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.name === "AbortError" || error.message.toLowerCase().includes("fetch failed");
+}
+
+async function fetchTelegramWithRetry(url: string): Promise<globalThis.Response> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= TELEGRAM_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TELEGRAM_FETCH_TIMEOUT_MS);
+      try {
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (error) {
+      lastError = error;
+      if (!isTransientFetchError(error) || attempt === TELEGRAM_FETCH_MAX_ATTEMPTS) {
+        break;
+      }
+      await delay(TELEGRAM_FETCH_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Failed to fetch telegram file");
+}
 
 export function createMediaRouter(
   getFileUrl: GetFileUrl,
@@ -11,7 +53,7 @@ export function createMediaRouter(
 ): Router {
   const router = Router();
 
-  router.get("/:fileId", async (req, res: Response, next: NextFunction) => {
+  router.get("/:fileId", async (req, res: ExpressResponse, next: NextFunction) => {
     try {
       const source = req.query.source as string | undefined;
       const id = req.params.fileId.trim();
@@ -28,7 +70,14 @@ export function createMediaRouter(
       }
 
       const url = await getFileUrl(id);
-      const upstream = await fetch(url);
+      let upstream: globalThis.Response;
+      try {
+        upstream = await fetchTelegramWithRetry(url);
+      } catch (error) {
+        logger.error({ err: error, fileId: id }, "Media proxy fetch failed after retries");
+        res.status(502).json({ error: "Failed to fetch file from Telegram" });
+        return;
+      }
 
       if (!upstream.ok) {
         res.status(502).json({ error: "Failed to fetch file from Telegram" });

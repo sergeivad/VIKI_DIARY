@@ -153,5 +153,34 @@ describe("SummaryService", () => {
       expect(result.get("ok")).toBe("Малыш спит");
       expect(mockLogger.warn).toHaveBeenCalled();
     });
+
+    it("normalizes octet-stream image to image/jpeg data url", async () => {
+      const openai = createMockOpenAI(chatResponse("Ребенок в коляске"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+      const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+
+      const result = await service.describePhotos([
+        { key: "photo-octet", mimeType: "application/octet-stream", data: jpegBytes },
+      ]);
+
+      expect(result.get("photo-octet")).toBe("Ребенок в коляске");
+
+      const create = openai.chat.completions.create as ReturnType<typeof vi.fn>;
+      const call = create.mock.calls[0][0];
+      expect(call.messages[0].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
+    });
+
+    it("skips non-image mime types before calling OpenAI", async () => {
+      const openai = createMockOpenAI(chatResponse("should-not-be-used"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhotos([
+        { key: "audio", mimeType: "audio/ogg", data: Buffer.from("not-image") },
+      ]);
+
+      expect(result.size).toBe(0);
+      expect(openai.chat.completions.create).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
   });
 });
