@@ -1,5 +1,6 @@
 import type { BotConversation, BotContext } from "../../types/bot.js";
 import { parseRuDateInput } from "../../utils/date.js";
+import { buildOpenDiaryKeyboard } from "../keyboards/entryActions.js";
 
 const NAME_PROMPT = "Как зовут малыша? 👶";
 const NAME_VALIDATION_MESSAGE = "Пожалуйста, введите имя текстом.";
@@ -88,12 +89,6 @@ export async function onboardingConversation(
       "",
       `👨‍👩‍👦 Инвайт для второго родителя:\n${inviteLink}`
     ].join("\n"),
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          { text: "📖 Открыть дневник", web_app: { url: "https://viki.deazmont.ru/app" } },
-        ]],
-      },
-    }
+    { reply_markup: buildOpenDiaryKeyboard() }
   );
 }

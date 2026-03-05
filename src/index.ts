@@ -61,8 +61,9 @@ const services = {
   thumbnailService,
   notificationService: new NotificationService(
     babyService,
-    async (telegramId, text) => {
-      await bot.api.sendMessage(telegramId.toString(), text);
+    async (telegramId, text, replyMarkup) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await bot.api.sendMessage(telegramId.toString(), text, replyMarkup ? { reply_markup: replyMarkup as any } : undefined);
     }
   )
 };

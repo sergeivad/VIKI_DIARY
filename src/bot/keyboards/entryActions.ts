@@ -40,13 +40,22 @@ export function buildDeleteCancelCallbackData(entryId: string): string {
   return `${ENTRY_CALLBACK_PREFIX}:delete:cancel:${entryId}`;
 }
 
+export const MINIAPP_URL = "https://viki.deazmont.ru/app";
+
 export function buildEntryActionsKeyboard(entryId: string): InlineKeyboard {
   return new InlineKeyboard()
     .text("✏️ Редактировать", buildEditCallbackData(entryId))
     .row()
     .text("📅 Изменить дату", buildDateMenuCallbackData(entryId))
     .row()
-    .text("🗑 Удалить", buildDeleteMenuCallbackData(entryId));
+    .text("🗑 Удалить", buildDeleteMenuCallbackData(entryId))
+    .row()
+    .webApp("📖 Открыть дневник", MINIAPP_URL);
+}
+
+export function buildOpenDiaryKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .webApp("📖 Открыть дневник", MINIAPP_URL);
 }
 
 export function buildDateSelectionKeyboard(entryId: string): InlineKeyboard {

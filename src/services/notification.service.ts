@@ -6,9 +6,10 @@ export type NotifyOtherMembersInput = {
   babyId: string;
   excludeUserId: string;
   text: string;
+  replyMarkup?: unknown;
 };
 
-export type SendMessageFn = (telegramId: bigint, text: string) => Promise<void>;
+export type SendMessageFn = (telegramId: bigint, text: string, replyMarkup?: unknown) => Promise<void>;
 
 function isValidTelegramId(user: User): user is User & { telegramId: bigint } {
   return typeof user.telegramId === "bigint";
@@ -30,7 +31,7 @@ export class NotificationService {
       }
 
       try {
-        await this.sendMessage(recipient.telegramId, input.text);
+        await this.sendMessage(recipient.telegramId, input.text, input.replyMarkup);
       } catch (error) {
         console.error("Failed to send member notification", {
           error,

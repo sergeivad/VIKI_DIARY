@@ -2,6 +2,7 @@ import type { EntryItem } from "@prisma/client";
 
 import type { NotificationService } from "../../services/notification.service.js";
 import { getEntryPreviewText, getMediaCounts } from "../formatters/entry.js";
+import { buildOpenDiaryKeyboard } from "../keyboards/entryActions.js";
 
 type NotifyAboutNewEntryInput = {
   notificationService: NotificationService;
@@ -50,7 +51,8 @@ export async function notifyMembersAboutNewEntry(
         authorFirstName: input.authorFirstName,
         babyName: input.babyName,
         items: input.items
-      })
+      }),
+      replyMarkup: buildOpenDiaryKeyboard()
     });
   } catch (error) {
     console.error("Failed to dispatch entry notification", {
