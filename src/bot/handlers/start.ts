@@ -67,7 +67,7 @@ export async function handleStart(ctx: BotContext): Promise<void> {
   }
 
   await ctx.reply(
-    "Привет! Я помогу вести дневник вашего малыша.",
+    "👋 Привет! Я помогу вести дневник вашего малыша.",
     { reply_markup: startKeyboard }
   );
 }
