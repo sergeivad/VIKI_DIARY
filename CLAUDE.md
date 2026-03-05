@@ -35,6 +35,9 @@ Telegram baby diary bot + Mini App — Grammy + Express 5 + Prisma 7 + PostgreSQ
 - `src/bot/bot.ts` — Bot factory: middleware registration order (services → conversations → media groups → commands → callbacks → message handler)
 - `src/bot/conversations/` — Multi-turn flows using `@grammyjs/conversations` (onboarding, date input, edit entry)
 - `src/bot/handlers/` — Command and callback handlers (including `/app` to open Mini App)
+- `src/bot/keyboards/` — Inline keyboard builders (entry actions, history pagination, summary months); `MINIAPP_URL` constant lives in `entryActions.ts`
+- `src/bot/notifications/newEntry.ts` — Builds and dispatches new-entry notifications to other diary members
+- `src/bot/formatters/entry.ts` — Entry preview text and media count formatting
 - `src/bot/middleware/mediaGroup.ts` — Buffers media group messages (600ms), extracts best-quality photos/videos, creates diary entries
 - `src/api/router.ts` — REST API router factory, mounts auth middleware + route modules + error handler
 - `src/api/middleware/auth.ts` — Telegram Mini App initData HMAC validation
@@ -47,6 +50,7 @@ Telegram baby diary bot + Mini App — Grammy + Express 5 + Prisma 7 + PostgreSQ
 - `src/services/s3.service.ts` — S3 file storage (upload, presigned URLs, delete) for Mini App media uploads
 - `src/services/s3.errors.ts` — S3 domain error classes
 - `src/services/thumbnail.service.ts` — Video thumbnail extraction via ffmpeg
+- `src/services/notification.service.ts` — Notifies other diary members about new entries (supports text + reply_markup)
 - `src/config/env.ts` — Zod-validated environment variables
 - `src/types/bot.ts` — BotContext, Services, BotConversation type definitions
 - `miniapp/` — Telegram Mini App (Vite + React 19 + Tailwind v4 + shadcn/ui)
