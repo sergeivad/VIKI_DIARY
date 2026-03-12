@@ -47,3 +47,30 @@ SMOKE_BASE_URL=https://bot.example.com BOT_TOKEN=<token> WEBHOOK_URL=https://bot
 
 1. Re-deploy previous commit/image from Dokploy.
 2. Run smoke checks again.
+
+## Admin: reset diary by Telegram ID
+
+After deploying a build that includes `src/admin/resetDiary.ts`, run the reset from the `app` container so it uses the same `DATABASE_URL` as production.
+
+1. Find the app container on the VPS:
+
+```bash
+docker ps --format '{{.ID}}\t{{.Names}}' | grep app
+```
+
+2. Run the compiled CLI inside that container:
+
+```bash
+docker exec -it <app-container-name> npm run diary:reset:dist -- 5702901984
+```
+
+Expected output:
+
+```text
+Deleted diary "<baby-name>" (<baby-id>) for Telegram user 5702901984. Members: <n>, entries: <n>, summaries: <n>.
+```
+
+Notes:
+- The command deletes the entire diary by removing the related `babies` row; Prisma cascade then removes members, entries, entry items, and summaries.
+- The `users` row is kept, so the Telegram user can onboard again and create a new diary.
+- If the command prints `Diary not found for Telegram user ...`, that user does not currently belong to a diary in this environment.
