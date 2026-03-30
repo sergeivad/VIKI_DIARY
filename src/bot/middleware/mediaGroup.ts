@@ -6,7 +6,8 @@ import type { BotContext } from "../../types/bot.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
-import { getAvatarFileId } from "../../utils/telegram.js";
+import { downloadTelegramFileWithMeta, getAvatarFileId } from "../../utils/telegram.js";
+import { env } from "../../config/env.js";
 
 const MEDIA_GROUP_FLUSH_DELAY_MS = 600;
 const NO_DIARY_MESSAGE =
@@ -31,6 +32,28 @@ function generateAndApplyTags(ctx: BotContext, entry: { id: string; items: Entry
       }
     } catch {
       // Fire-and-forget
+    }
+  })();
+}
+
+function describeAndSavePhotos(ctx: BotContext, items: EntryItem[]): void {
+  const photoItems = items.filter((item) => item.type === "photo" && item.fileId && !item.description);
+  if (photoItems.length === 0) return;
+
+  void (async () => {
+    for (const item of photoItems) {
+      try {
+        const file = await downloadTelegramFileWithMeta(ctx.api, env.BOT_TOKEN, item.fileId!);
+        const description = await ctx.services.summaryService.describePhoto({
+          mimeType: file.mimeType,
+          data: file.data,
+        });
+        if (description) {
+          await ctx.services.diaryService.updateItemDescription(item.id, description);
+        }
+      } catch {
+        // Fire-and-forget: never throw
+      }
     }
   })();
 }
@@ -135,11 +158,13 @@ export function createMediaGroupMiddleware(
           items: result.entry.items
         });
         generateAndApplyTags(buffered.ctx, result.entry);
+        describeAndSavePhotos(buffered.ctx, result.entry.items);
         return;
       }
 
       await buffered.ctx.reply(formatIngestAck(result));
       generateAndApplyTags(buffered.ctx, result.entry);
+      describeAndSavePhotos(buffered.ctx, result.entry.items);
     } catch (error) {
       console.error("Failed to process media group", { error, groupKey });
       await buffered.ctx.reply("Не удалось сохранить медиагруппу. Попробуйте ещё раз.");

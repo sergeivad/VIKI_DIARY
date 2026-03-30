@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../src/config/env.js", () => ({
+  env: { BOT_TOKEN: "test-token" }
+}));
+
 vi.mock("../../src/utils/telegram.js", () => ({
-  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
+  getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id"),
+  downloadTelegramFileWithMeta: vi.fn().mockResolvedValue({ data: Buffer.from(""), mimeType: "image/jpeg", filePath: "file.jpg" })
 }));
 
 import { createMediaGroupMiddleware } from "../../src/bot/middleware/mediaGroup.js";
@@ -17,6 +22,7 @@ function buildServices(hasDiary = true) {
       getBabyByUser: vi.fn().mockResolvedValue(hasDiary ? { id: "baby-1", name: "Вики" } : null)
     },
     diaryService: {
+      updateItemDescription: vi.fn().mockResolvedValue(undefined),
       createOrAppend: vi.fn().mockResolvedValue({
         mode: "created",
         entry: {
@@ -60,6 +66,9 @@ function buildServices(hasDiary = true) {
     },
     taggingService: {
       generateTags: vi.fn().mockResolvedValue([])
+    },
+    summaryService: {
+      describePhoto: vi.fn().mockResolvedValue(null)
     }
   };
 }

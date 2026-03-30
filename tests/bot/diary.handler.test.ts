@@ -6,6 +6,7 @@ vi.mock("../../src/config/env.js", () => ({
 
 vi.mock("../../src/utils/telegram.js", () => ({
   downloadTelegramFile: vi.fn(),
+  downloadTelegramFileWithMeta: vi.fn().mockResolvedValue({ data: Buffer.from(""), mimeType: "image/jpeg", filePath: "file.jpg" }),
   getAvatarFileId: vi.fn().mockResolvedValue("avatar-file-id")
 }));
 
@@ -31,7 +32,8 @@ function buildServices(overrides: Record<string, unknown> = {}) {
           items: []
         }
       }),
-      updateTags: vi.fn().mockResolvedValue(undefined)
+      updateTags: vi.fn().mockResolvedValue(undefined),
+      updateItemDescription: vi.fn().mockResolvedValue(undefined)
     },
     notificationService: {
       notifyOtherMembers: vi.fn().mockResolvedValue(undefined)
@@ -41,6 +43,9 @@ function buildServices(overrides: Record<string, unknown> = {}) {
     },
     taggingService: {
       generateTags: vi.fn().mockResolvedValue([])
+    },
+    summaryService: {
+      describePhoto: vi.fn().mockResolvedValue(null)
     },
     ...overrides
   };

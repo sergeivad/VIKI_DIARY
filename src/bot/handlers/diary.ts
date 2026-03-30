@@ -3,7 +3,7 @@ import type { EntryItem } from "@prisma/client";
 import type { DiaryItemInput } from "../../services/diary.service.js";
 import { TranscriptionError, TranscriptionErrorCode } from "../../services/transcription.errors.js";
 import type { BotContext } from "../../types/bot.js";
-import { downloadTelegramFile, getAvatarFileId } from "../../utils/telegram.js";
+import { downloadTelegramFile, downloadTelegramFileWithMeta, getAvatarFileId } from "../../utils/telegram.js";
 import { buildEntryActionsKeyboard } from "../keyboards/entryActions.js";
 import { formatRuDate, formatRuTime } from "../../utils/date.js";
 import { notifyMembersAboutNewEntry } from "../notifications/newEntry.js";
@@ -67,6 +67,28 @@ function generateAndApplyTags(ctx: BotContext, entry: { id: string; items: Entry
       }
     } catch {
       // Fire-and-forget: never throw, never block the user
+    }
+  })();
+}
+
+function describeAndSavePhotos(ctx: BotContext, items: EntryItem[]): void {
+  const photoItems = items.filter((item) => item.type === "photo" && item.fileId && !item.description);
+  if (photoItems.length === 0) return;
+
+  void (async () => {
+    for (const item of photoItems) {
+      try {
+        const file = await downloadTelegramFileWithMeta(ctx.api, env.BOT_TOKEN, item.fileId!);
+        const description = await ctx.services.summaryService.describePhoto({
+          mimeType: file.mimeType,
+          data: file.data,
+        });
+        if (description) {
+          await ctx.services.diaryService.updateItemDescription(item.id, description);
+        }
+      } catch {
+        // Fire-and-forget: never throw
+      }
     }
   })();
 }
@@ -276,4 +298,5 @@ export async function handleDiaryMessage(ctx: BotContext): Promise<void> {
   }
 
   generateAndApplyTags(ctx, result.entry);
+  describeAndSavePhotos(ctx, result.entry.items);
 }
