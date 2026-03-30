@@ -11,7 +11,6 @@ import type { S3Service } from "../services/s3.service.js";
 import type { ThumbnailService } from "../services/thumbnail.service.js";
 
 type GetFileUrl = (fileId: string) => Promise<string>;
-type GetTelegramPhotoData = (fileId: string) => Promise<{ data: Buffer; mimeType: string }>;
 type ApiServices = Services & {
   s3Service: S3Service | null;
   thumbnailService: ThumbnailService;
@@ -21,7 +20,6 @@ export function createApiRouter(
   services: ApiServices,
   botToken: string,
   getFileUrl: GetFileUrl,
-  getTelegramPhotoData: GetTelegramPhotoData,
 ): Router {
   const router = Router();
 
@@ -54,8 +52,6 @@ export function createApiRouter(
       services.babyService,
       services.diaryService,
       services.summaryService,
-      getTelegramPhotoData,
-      services.s3Service,
     ),
   );
 

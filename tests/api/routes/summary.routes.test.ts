@@ -15,13 +15,6 @@ function buildApp(
   babyService: any,
   diaryService: any,
   summaryService: any,
-  getTelegramPhotoData: (fileId: string) => Promise<{ data: Buffer; mimeType: string }> = async () => ({
-    data: Buffer.from("photo-bytes"),
-    mimeType: "image/jpeg",
-  }),
-  s3Service: { getObjectData: (s3Key: string) => Promise<{ data: Buffer; mimeType: string | null }> } | null = {
-    getObjectData: async () => ({ data: Buffer.from("s3-bytes"), mimeType: "image/jpeg" }),
-  },
 ) {
   const app = express();
   app.use(express.json());
@@ -32,8 +25,6 @@ function buildApp(
       babyService,
       diaryService,
       summaryService,
-      getTelegramPhotoData,
-      s3Service,
     ),
   );
   return app;
@@ -70,7 +61,6 @@ describe("summary routes", () => {
       generateSummary: vi.fn(),
       getSummary: vi.fn(),
       saveSummary: vi.fn(),
-      describePhotos: vi.fn(),
     };
   });
 
@@ -168,7 +158,7 @@ describe("summary routes", () => {
       );
     });
 
-    it("includes s3 photos in vision inputs and enriches entries", async () => {
+    it("includes stored photo descriptions in entries text", async () => {
       babyService.getBabyByUser.mockResolvedValue(fakeBaby);
       diaryService.getEntriesForDateRange.mockResolvedValue([
         {
@@ -180,20 +170,18 @@ describe("summary routes", () => {
               fileId: "tg-photo-1",
               s3Key: null,
               textContent: "Фото с прогулки",
+              description: "Ребенок в коляске на улице",
             },
             {
               type: "photo",
               fileId: null,
               s3Key: "uploads/u/s3-photo-1.jpg",
               textContent: null,
+              description: "Малыш на коврике дома",
             },
           ],
         },
       ]);
-      summaryService.describePhotos.mockResolvedValue(new Map([
-        ["file:tg-photo-1", "Ребенок в коляске на улице"],
-        ["s3:uploads/u/s3-photo-1.jpg", "Малыш на коврике дома"],
-      ]));
       summaryService.generateSummary.mockResolvedValue("Summary with photos");
       summaryService.saveSummary.mockResolvedValue({
         id: "sum-2",
@@ -205,35 +193,13 @@ describe("summary routes", () => {
         updatedAt: new Date("2026-02-02T12:00:00Z"),
       });
 
-      const app = buildApp(
-        babyService,
-        diaryService,
-        summaryService,
-        async () => ({ data: Buffer.from("telegram-photo"), mimeType: "image/jpeg" }),
-        {
-          getObjectData: async () => ({ data: Buffer.from("s3-photo"), mimeType: "image/jpeg" }),
-        },
-      );
+      const app = buildApp(babyService, diaryService, summaryService);
 
       const res = await request(app)
         .post("/summary")
         .send({ month: 1, year: 2026 });
 
       expect(res.status).toBe(200);
-      expect(summaryService.describePhotos).toHaveBeenCalledTimes(1);
-      expect(summaryService.describePhotos).toHaveBeenCalledWith([
-        {
-          key: "file:tg-photo-1",
-          mimeType: "image/jpeg",
-          data: expect.any(Buffer),
-        },
-        {
-          key: "s3:uploads/u/s3-photo-1.jpg",
-          mimeType: "image/jpeg",
-          data: expect.any(Buffer),
-        },
-      ]);
-
       expect(summaryService.generateSummary).toHaveBeenCalledWith({
         babyName: "Viki",
         birthDate: fakeBaby.birthDate,
@@ -245,46 +211,46 @@ describe("summary routes", () => {
       });
     });
 
-    it("does not pass Telegram bot token URLs to vision provider", async () => {
+    it("skips photo descriptions when description is null", async () => {
       babyService.getBabyByUser.mockResolvedValue(fakeBaby);
       diaryService.getEntriesForDateRange.mockResolvedValue([
         {
           eventDate: new Date("2026-01-07"),
           author: { firstName: "Alice" },
-          items: [{ type: "photo", fileId: "tg-photo-2", s3Key: null, textContent: null }],
+          items: [
+            {
+              type: "photo",
+              fileId: "tg-photo-2",
+              s3Key: null,
+              textContent: null,
+              description: null,
+            },
+          ],
         },
       ]);
-      summaryService.describePhotos.mockResolvedValue(new Map());
-      summaryService.generateSummary.mockResolvedValue("No token leak");
+      summaryService.generateSummary.mockResolvedValue("No descriptions");
       summaryService.saveSummary.mockResolvedValue({
         id: "sum-3",
         babyId: "baby-1",
         month: 1,
         year: 2026,
-        text: "No token leak",
+        text: "No descriptions",
         createdAt: new Date("2026-02-03T12:00:00Z"),
         updatedAt: new Date("2026-02-03T12:00:00Z"),
       });
 
-      const app = buildApp(
-        babyService,
-        diaryService,
-        summaryService,
-        async () => ({ data: Buffer.from("telegram-photo"), mimeType: "image/jpeg" }),
-      );
+      const app = buildApp(babyService, diaryService, summaryService);
 
-      await request(app)
+      const res = await request(app)
         .post("/summary")
         .send({ month: 1, year: 2026 });
 
-      const visionInputs = summaryService.describePhotos.mock.calls[0][0] as Array<unknown>;
-      expect(Array.isArray(visionInputs)).toBe(true);
-      expect(visionInputs.length).toBe(1);
-      expect(typeof visionInputs[0]).toBe("object");
-
-      const serialized = JSON.stringify(visionInputs);
-      expect(serialized).not.toContain("SECRET_TOKEN");
-      expect(serialized).not.toContain("https://api.telegram.org/file/bot");
+      expect(res.status).toBe(200);
+      expect(summaryService.generateSummary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entriesText: ["[2026-01-07] Alice: "],
+        }),
+      );
     });
 
     it("returns 400 without month/year", async () => {
