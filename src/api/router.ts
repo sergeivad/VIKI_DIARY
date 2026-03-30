@@ -41,7 +41,12 @@ export function createApiRouter(
   );
   router.use(
     "/entries",
-    createEntriesRouter(services.diaryService, services.taggingService),
+    createEntriesRouter(
+      services.diaryService,
+      services.taggingService,
+      services.summaryService,
+      services.s3Service,
+    ),
   );
   router.use(
     "/summary",

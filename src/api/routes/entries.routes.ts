@@ -2,6 +2,8 @@ import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { DiaryItemInput, DiaryService } from "../../services/diary.service.js";
 import type { TaggingService } from "../../services/tagging.service.js";
+import type { SummaryService } from "../../services/summary.service.js";
+import type { S3Service } from "../../services/s3.service.js";
 import type { AuthedRequest } from "../types.js";
 import { logger } from "../../config/logger.js";
 
@@ -14,8 +16,36 @@ function isSupportedMediaType(type: unknown): type is SupportedMediaType {
 export function createEntriesRouter(
   diaryService: DiaryService,
   taggingService: TaggingService,
+  summaryService: SummaryService,
+  s3Service: S3Service | null,
 ): Router {
   const router = Router();
+
+  function describeAndSaveS3Photos(
+    entry: { items: Array<{ id: string; type: string; s3Key: string | null; description: string | null }> },
+  ): void {
+    const photoItems = entry.items.filter(
+      (item) => item.type === "photo" && item.s3Key && !item.description,
+    );
+    if (photoItems.length === 0 || !s3Service) return;
+
+    void (async () => {
+      for (const item of photoItems) {
+        try {
+          const s3Photo = await s3Service.getObjectData(item.s3Key!);
+          const description = await summaryService.describePhoto({
+            mimeType: s3Photo.mimeType ?? "image/jpeg",
+            data: s3Photo.data,
+          });
+          if (description) {
+            await diaryService.updateItemDescription(item.id, description);
+          }
+        } catch (err) {
+          logger.error({ err, itemId: item.id }, "Fire-and-forget photo description failed");
+        }
+      }
+    })();
+  }
 
   // GET / — paginated history
   router.get("/", async (req, res: Response, next: NextFunction) => {
@@ -112,6 +142,8 @@ export function createEntriesRouter(
           .then((tags) => diaryService.updateTags(entry.id, tags))
           .catch((err) => logger.error({ err }, "Fire-and-forget tagging failed"));
       }
+
+      describeAndSaveS3Photos(entry);
 
       res.status(201).json(entry);
     } catch (err) {
@@ -217,6 +249,8 @@ export function createEntriesRouter(
         actorId: actor.userId,
         items: mediaItems,
       });
+
+      describeAndSaveS3Photos(entry);
 
       res.status(201).json(entry);
     } catch (err) {

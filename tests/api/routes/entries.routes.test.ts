@@ -3,6 +3,7 @@ import express from "express";
 import request from "supertest";
 import { createEntriesRouter } from "../../../src/api/routes/entries.routes.js";
 import type { AuthedRequest } from "../../../src/api/types.js";
+import type { SummaryService } from "../../../src/services/summary.service.js";
 import { apiErrorHandler } from "../../../src/api/middleware/errorHandler.js";
 
 vi.mock("../../../src/config/logger.js", () => ({
@@ -29,11 +30,22 @@ const mockTaggingService = {
   generateTags: vi.fn(),
 };
 
+const mockSummaryService = { describePhoto: vi.fn() } as unknown as SummaryService;
+const mockS3Service = null;
+
 function buildApp() {
   const app = express();
   app.use(express.json());
   app.use(fakeAuth);
-  app.use("/entries", createEntriesRouter(mockDiaryService as any, mockTaggingService as any));
+  app.use(
+    "/entries",
+    createEntriesRouter(
+      mockDiaryService as any,
+      mockTaggingService as any,
+      mockSummaryService,
+      mockS3Service,
+    ),
+  );
   app.use(apiErrorHandler);
   return app;
 }
