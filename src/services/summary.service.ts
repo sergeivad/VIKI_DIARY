@@ -18,6 +18,11 @@ export type SummaryPhotoInput = {
   data: Buffer;
 };
 
+export type PhotoDescriptionInput = {
+  mimeType: string;
+  data: Buffer;
+};
+
 function detectImageMimeTypeFromBuffer(data: Buffer): string | null {
   if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
     return "image/jpeg";
@@ -54,7 +59,7 @@ function detectImageMimeTypeFromBuffer(data: Buffer): string | null {
   return null;
 }
 
-function resolveVisionImageMimeType(photo: SummaryPhotoInput): string | null {
+function resolveVisionImageMimeType(photo: { mimeType: string; data: Buffer }): string | null {
   if (photo.mimeType.startsWith("image/")) {
     return photo.mimeType;
   }
@@ -144,6 +149,38 @@ export class SummaryService {
 
       this.log.error({ err: error }, "Summary generation failed");
       throw new SummaryDomainError(SummaryErrorCode.generationFailed, "Failed to generate summary");
+    }
+  }
+
+  async describePhoto(photo: PhotoDescriptionInput): Promise<string | null> {
+    try {
+      const resolvedMimeType = resolveVisionImageMimeType(photo);
+      if (!resolvedMimeType) {
+        this.log.warn({ mimeType: photo.mimeType }, "Skipping photo with unsupported MIME type");
+        return null;
+      }
+
+      const encodedData = photo.data.toString("base64");
+      const imageUrl = `data:${resolvedMimeType};base64,${encodedData}`;
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 100,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Опиши что на фотографии одним предложением на русском." },
+              { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+            ],
+          },
+        ],
+      });
+
+      return response.choices[0]?.message?.content?.trim() ?? null;
+    } catch (error) {
+      this.log.warn({ err: error }, "Failed to describe photo");
+      return null;
     }
   }
 

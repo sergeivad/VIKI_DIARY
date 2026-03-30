@@ -92,6 +92,80 @@ describe("SummaryService", () => {
     expect(call.messages[1].content).toContain("02.2026");
   });
 
+  describe("describePhoto", () => {
+    it("returns description for a valid photo", async () => {
+      const openai = createMockOpenAI(chatResponse("Малыш на качелях в парке"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhoto({
+        mimeType: "image/jpeg",
+        data: Buffer.from("photo-data"),
+      });
+
+      expect(result).toBe("Малыш на качелях в парке");
+
+      const create = openai.chat.completions.create as ReturnType<typeof vi.fn>;
+      const call = create.mock.calls[0][0];
+      expect(call.model).toBe("gpt-4o-mini");
+      expect(call.max_tokens).toBe(100);
+      expect(call.messages[0].content[1].image_url.detail).toBe("low");
+    });
+
+    it("returns null on API error", async () => {
+      const openai = createMockOpenAI(new Error("API down"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhoto({
+        mimeType: "image/jpeg",
+        data: Buffer.from("photo-data"),
+      });
+
+      expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it("returns null for unsupported MIME type", async () => {
+      const openai = createMockOpenAI(chatResponse("should not be called"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhoto({
+        mimeType: "audio/ogg",
+        data: Buffer.from("not-image"),
+      });
+
+      expect(result).toBeNull();
+      expect(openai.chat.completions.create).not.toHaveBeenCalled();
+    });
+
+    it("detects JPEG from buffer when MIME is octet-stream", async () => {
+      const openai = createMockOpenAI(chatResponse("Ребёнок в коляске"));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+      const jpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+
+      const result = await service.describePhoto({
+        mimeType: "application/octet-stream",
+        data: jpegBytes,
+      });
+
+      expect(result).toBe("Ребёнок в коляске");
+      const create = openai.chat.completions.create as ReturnType<typeof vi.fn>;
+      const call = create.mock.calls[0][0];
+      expect(call.messages[0].content[1].image_url.url).toMatch(/^data:image\/jpeg;base64,/);
+    });
+
+    it("returns null when response content is null", async () => {
+      const openai = createMockOpenAI(chatResponse(null));
+      const service = new SummaryService(mockPrisma, openai, mockLogger);
+
+      const result = await service.describePhoto({
+        mimeType: "image/jpeg",
+        data: Buffer.from("data"),
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("describePhotos", () => {
     it("returns descriptions mapped by key", async () => {
       const openai = {
