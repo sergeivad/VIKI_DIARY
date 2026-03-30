@@ -12,12 +12,6 @@ export type SummaryInput = {
   entriesText: string[];
 };
 
-export type SummaryPhotoInput = {
-  key: string;
-  mimeType: string;
-  data: Buffer;
-};
-
 export type PhotoDescriptionInput = {
   mimeType: string;
   data: Buffer;
@@ -184,49 +178,4 @@ export class SummaryService {
     }
   }
 
-  async describePhotos(photos: SummaryPhotoInput[]): Promise<Map<string, string>> {
-    if (photos.length === 0) return new Map();
-
-    const results = new Map<string, string>();
-
-    const promises = photos.map(async (photo) => {
-      try {
-        const resolvedMimeType = resolveVisionImageMimeType(photo);
-        if (!resolvedMimeType) {
-          this.log.warn(
-            { photoKey: photo.key, mimeType: photo.mimeType },
-            "Skipping photo with unsupported MIME type"
-          );
-          return;
-        }
-
-        const encodedData = photo.data.toString("base64");
-        const imageUrl = `data:${resolvedMimeType};base64,${encodedData}`;
-
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          max_tokens: 100,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Опиши что на фотографии одним предложением на русском." },
-                { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
-              ],
-            },
-          ],
-        });
-
-        const description = response.choices[0]?.message?.content?.trim();
-        if (description) {
-          results.set(photo.key, description);
-        }
-      } catch (error) {
-        this.log.warn({ photoKey: photo.key, err: error }, "Failed to describe photo, skipping");
-      }
-    });
-
-    await Promise.all(promises);
-    return results;
-  }
 }
