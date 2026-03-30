@@ -638,4 +638,11 @@ export class DiaryService {
       });
     });
   }
+
+  async updateItemDescription(itemId: string, description: string): Promise<void> {
+    await this.db.entryItem.update({
+      where: { id: itemId },
+      data: { description }
+    });
+  }
 }

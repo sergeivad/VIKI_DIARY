@@ -977,4 +977,23 @@ describe("DiaryService", () => {
       })
     );
   });
+
+  it("updateItemDescription updates the description field of an entry item", async () => {
+    const update = vi.fn().mockResolvedValue({ id: "item-1", description: "Малыш в парке" });
+
+    const db = {
+      entryItem: {
+        update
+      }
+    } as unknown as PrismaClient;
+
+    const service = new DiaryService(db);
+
+    await service.updateItemDescription("item-1", "Малыш в парке");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { description: "Малыш в парке" }
+    });
+  });
 });
