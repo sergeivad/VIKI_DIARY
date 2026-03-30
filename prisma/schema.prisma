@@ -87,6 +87,7 @@ model EntryItem {
   thumbnailFileId String?     @map("thumbnail_file_id")
   s3Key          String?      @map("s3_key")
   thumbnailS3Key String?      @map("thumbnail_s3_key")
+  description    String?
   orderIndex     Int          @map("order_index")
   createdAt      DateTime     @default(now()) @map("created_at")
 
