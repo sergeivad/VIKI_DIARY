@@ -117,7 +117,7 @@ export class SummaryService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4.1",
+        model: "gpt-5.4",
         max_tokens: 2000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
