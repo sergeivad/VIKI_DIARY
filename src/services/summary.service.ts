@@ -74,7 +74,7 @@ const SYSTEM_PROMPT = `Ты — помощник для детского дне�
 - Каждый факт должен быть подтверждён конкретной записью. НЕ додумывай, НЕ обобщай то, чего нет
 - Если в записях упомянуто что-то один раз — пиши как единичное событие, не превращай в паттерн
 - Описания фото используй для контекста (место, обстановка), но не выдумывай эмоции по фото
-- Длина: 200-500 слов
+- Длина: 300-800 слов. Если записей много — пиши ближе к 800, если мало — ближе к 300
 - Язык: русский, тёплый но лаконичный`;
 
 export class SummaryService {
@@ -117,8 +117,8 @@ export class SummaryService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 1000,
+        model: "gpt-4.1",
+        max_tokens: 2000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userMessage }

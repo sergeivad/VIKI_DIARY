@@ -87,7 +87,7 @@ describe("SummaryService", () => {
 
     const create = (openai.chat.completions.create as ReturnType<typeof vi.fn>);
     const call = create.mock.calls[0][0];
-    expect(call.model).toBe("gpt-4o");
+    expect(call.model).toBe("gpt-4.1");
     expect(call.messages[1].content).toContain("Вика");
     expect(call.messages[1].content).toContain("02.2026");
   });
